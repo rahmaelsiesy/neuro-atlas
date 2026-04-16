@@ -279,16 +279,18 @@ function renderAllTracks() {
   if (_depArrowSVG) { _depArrowSVG.remove(); _depArrowSVG = null; }
 
   if (currentView === 'active') {
-    // Active view: show ONLY the 3 focus tracks
+    // Active view: show ONLY the 3 focus tracks, fully hide the rest
     TRACK_ORDER.forEach(trackId => {
       const section = document.querySelector(`.track[data-track="${trackId}"]`);
       if (!section) return;
       if (ACTIVE_FOCUS_TRACKS.includes(trackId)) {
         section.classList.remove('track-collapsed');
+        section.style.display = '';
         board.appendChild(section);
         renderTrack(trackId, QUEST_DATA[trackId] || []);
       } else {
         section.classList.add('track-collapsed');
+        section.style.display = 'none';
       }
     });
   } else {
@@ -299,6 +301,7 @@ function renderAllTracks() {
       const section = document.querySelector(`.track[data-track="${trackId}"]`);
       if (!section) return;
       section.classList.remove('track-collapsed');
+      section.style.display = '';
       board.appendChild(section);
       renderTrack(trackId, milestones);
     });
