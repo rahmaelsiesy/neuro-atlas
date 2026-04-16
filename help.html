@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>How to Use — Quest Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ============================================================
+       HELP PAGE — SPECIFIC STYLES
+       ============================================================ */
+
+    /* ---------- PAGE SHELL ---------- */
+    .help-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .help-header-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .help-back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .help-back-btn:hover {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+    }
+    .help-header-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ---------- NAV LINKS ---------- */
+    .help-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .help-nav a {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .help-nav a:hover {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+    }
+    .help-nav a.active {
+      background: rgba(249, 115, 22, 0.15);
+      color: #f97316;
+      border: 1px solid rgba(249,115,22,0.3);
+    }
+
+    /* ---------- HERO ---------- */
+    .help-hero {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px 24px;
+    }
+    .help-hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(249,115,22,0.12);
+      border: 1px solid rgba(249,115,22,0.3);
+      color: #f97316;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+    }
+    .help-hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+      line-height: 1.15;
+    }
+    .help-hero p {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 580px;
+      line-height: 1.6;
+    }
+
+    /* ---------- SEARCH ---------- */
+    .help-search-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 28px;
+    }
+    .help-search-box {
+      position: relative;
+    }
+    .help-search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-faint);
+      pointer-events: none;
+    }
+    .help-search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px 12px 44px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .help-search-input::placeholder {
+      color: var(--text-faint);
+    }
+    .help-search-input:focus {
+      border-color: rgba(249,115,22,0.5);
+      box-shadow: 0 0 0 3px rgba(249,115,22,0.1);
+    }
+    .help-no-results {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 40px 0;
+      font-size: 15px;
+      display: none;
+    }
+    .help-no-results.visible {
+      display: block;
+    }
+
+    /* ---------- SECTIONS LIST ---------- */
+    .help-sections {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ---------- COLLAPSIBLE SECTION CARD ---------- */
+    .help-section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      border-left: 4px solid transparent;
+      transition: box-shadow 0.2s;
+    }
+    .help-section-card:hover {
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    /* Track color borders */
+    .help-section-card[data-color="flagship"] { border-left-color: #f97316; }
+    .help-section-card[data-color="methods"]  { border-left-color: #8b5cf6; }
+    .help-section-card[data-color="network"]  { border-left-color: #3b82f6; }
+    .help-section-card[data-color="package"]  { border-left-color: #10b981; }
+    .help-section-card[data-color="cursor"]   { border-left-color: #06b6d4; }
+    .help-section-card[data-color="learning"] { border-left-color: #f59e0b; }
+    .help-section-card[data-color="career"]   { border-left-color: #ec4899; }
+    .help-section-card[data-color="flagship2"]{ border-left-color: rgba(249,115,22,0.55); }
+
+    .help-section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      transition: background 0.15s;
+    }
+    .help-section-header::-webkit-details-marker { display: none; }
+    .help-section-header:hover {
+      background: rgba(255,255,255,0.03);
+    }
+    .help-section-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .help-section-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+    .help-section-chevron {
+      color: var(--text-faint);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
+    }
+    details[open] .help-section-chevron {
+      transform: rotate(180deg);
+    }
+
+    /* ---------- SECTION CONTENT ---------- */
+    .help-section-body {
+      padding: 0 20px 20px 52px;
+    }
+    .help-section-body ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .help-section-body ul li {
+      position: relative;
+      padding-left: 18px;
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .help-section-body ul li::before {
+      content: "›";
+      position: absolute;
+      left: 0;
+      color: var(--text-faint);
+      font-weight: 700;
+    }
+    .help-section-body ul li strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .help-section-body ul li code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: #a78bfa;
+    }
+
+    /* Shortcut badge inline */
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      vertical-align: middle;
+      margin: 0 2px;
+    }
+
+    /* ---------- PROTOCOL TABLE ---------- */
+    .protocol-table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .protocol-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .protocol-table th {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .protocol-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text);
+      line-height: 1.4;
+      vertical-align: top;
+    }
+    .protocol-table tr:last-child td {
+      border-bottom: none;
+    }
+    .protocol-table tr:hover td {
+      background: rgba(255,255,255,0.025);
+    }
+    .protocol-table .bottleneck {
+      color: #ef4444;
+      font-weight: 700;
+    }
+    .protocol-table .total-row td {
+      font-weight: 700;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+
+    /* ---------- LEVEL LADDER ---------- */
+    .level-ladder {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .level-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.15s;
+    }
+    .level-row:hover {
+      background: rgba(255,255,255,0.06);
+    }
+    .level-badge-num {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 99px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 40px;
+      text-align: center;
+    }
+    .level-row:nth-child(1) .level-badge-num { background: rgba(107,114,128,0.2); color: #9ca3af; }
+    .level-row:nth-child(2) .level-badge-num { background: rgba(16,185,129,0.15); color: #10b981; }
+    .level-row:nth-child(3) .level-badge-num { background: rgba(59,130,246,0.15); color: #3b82f6; }
+    .level-row:nth-child(4) .level-badge-num { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+    .level-row:nth-child(5) .level-badge-num { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .level-row:nth-child(6) .level-badge-num { background: rgba(249,115,22,0.15); color: #f97316; }
+    .level-row:nth-child(7) .level-badge-num { background: rgba(6,182,212,0.15); color: #06b6d4; }
+    .level-row:nth-child(8) .level-badge-num { background: rgba(236,72,153,0.15); color: #ec4899; }
+    .level-name {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      flex: 1;
+      min-width: 130px;
+    }
+    .level-xp {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 70px;
+    }
+    .level-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex: 2;
+    }
+
+    /* ---------- KEYBOARD SHORTCUTS TABLE ---------- */
+    .shortcuts-section {
+      max-width: 900px;
+      margin: 0 auto 64px;
+      padding: 0 24px;
+    }
+    .shortcuts-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .shortcuts-table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .shortcuts-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .shortcuts-table th {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 20px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .shortcuts-table td {
+      padding: 12px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .shortcuts-table tr:last-child td {
+      border-bottom: none;
+    }
+    .shortcuts-table tr:hover td {
+      background: rgba(255,255,255,0.025);
+    }
+    .shortcuts-table td:first-child {
+      width: 120px;
+    }
+
+    /* ---------- FOOTER ---------- */
+    .help-footer {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 48px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .help-footer p {
+      font-size: 13px;
+      color: var(--text-faint);
+    }
+
+    /* ---------- STEP TYPE BADGES ROW ---------- */
+    .step-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+    .step-badge.code       { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .step-badge.figure     { background: rgba(249,115,22,0.15); color: #f97316; }
+    .step-badge.wetlab     { background: rgba(16,185,129,0.15); color: #10b981; }
+    .step-badge.learning   { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .step-badge.validation { background: rgba(59,130,246,0.15); color: #3b82f6; }
+    .step-badge.writing    { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+    .step-badge.setup      { background: rgba(107,114,128,0.15); color: #9ca3af; }
+
+    /* ---------- RESPONSIVE ---------- */
+    @media (max-width: 600px) {
+      .help-header-inner { padding: 10px 16px; }
+      .help-nav { display: none; }
+      .help-hero, .help-search-wrap, .help-sections, .shortcuts-section, .help-footer { padding-left: 16px; padding-right: 16px; }
+      .help-section-body { padding-left: 20px; }
+      .level-desc { display: none; }
+      .level-xp { min-width: auto; }
+    }
+
+    /* ---------- ANIMATION ---------- */
+    @keyframes help-slide-down {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    details[open] .help-section-body {
+      animation: help-slide-down 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="help-header">
+  <div class="help-header-inner">
+    <a href="index.html" class="help-back-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Quest Board
+    </a>
+    <div class="help-header-title">❓ How to Use</div>
+    <nav class="help-nav">
+      <a href="index.html">Board</a>
+      <a href="schedule.html">Schedule</a>
+      <a href="tracker.html">Tracker</a>
+      <a href="misc.html">Misc</a>
+      <a href="help.html" class="active">?</a>
+    </nav>
+    <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="help-hero">
+  <div class="help-hero-badge">📖 Reference Guide</div>
+  <h1>How to Use Your Quest Board</h1>
+  <p>A quick reference for when you forget how things work — no judgment.</p>
+</section>
+
+<!-- ===== SEARCH ===== -->
+<div class="help-search-wrap">
+  <div class="help-search-box">
+    <svg class="help-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input
+      type="search"
+      class="help-search-input"
+      id="helpSearch"
+      placeholder="Search sections… e.g. "timer", "levels", "protocol""
+      autocomplete="off"
+      spellcheck="false"
+    />
+  </div>
+  <div class="help-no-results" id="helpNoResults">No sections match your search.</div>
+</div>
+
+<!-- ===== SECTIONS ===== -->
+<div class="help-sections" id="helpSections">
+
+  <!-- 1. The Big Picture -->
+  <details class="help-section-card" data-color="flagship" open>
+    <summary class="help-section-header">
+      <span class="help-section-icon">🗺️</span>
+      <span class="help-section-title">The Big Picture</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>This board tracks your PhD as a game. Steps → XP → Levels → PhD.</li>
+        <li>7 tracks: <strong>Flagship</strong> · <strong>Methods</strong> · <strong>Network</strong> · <strong>txomics</strong> · <strong>Cursor Plan</strong> · <strong>Learning</strong> · <strong>Career</strong>. Plus custom projects.</li>
+        <li>8 levels from <strong>Graduate Student</strong> (0 XP) → <strong>PhD</strong> (1400 XP). Each level = a real career milestone.</li>
+        <li>Your one job: complete 90-min focus blocks. The board tracks everything else.</li>
+        <li>Success = 2 deep work blocks per day minimum. Everything above that is a bonus.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 2. Daily Workflow -->
+  <details class="help-section-card" data-color="methods">
+    <summary class="help-section-header">
+      <span class="help-section-icon">🔁</span>
+      <span class="help-section-title">Daily Workflow</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>Every morning: open <strong>schedule.html</strong> → see today's 3 tasks → click <strong>"▶ Start Focus"</strong> → work 90 min → log it.</li>
+        <li>You need <strong>2 deep blocks</strong> for a "Solid day ✓". 3 = "Great day ★". 4 = "Beast mode 🔥".</li>
+        <li>Didn't finish something? Hit <strong>"Carry →"</strong> — it moves to tomorrow. No guilt, no penalty.</li>
+        <li><strong>Lab days</strong>: toggle a day as "Lab Day" → your deep work cap drops to 2 so you're not overloaded.</li>
+        <li>Admin tasks (email, backup, docs) use a <strong>separate admin quota</strong> — they never eat your deep work blocks.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 3. The Quest Board -->
+  <details class="help-section-card" data-color="network">
+    <summary class="help-section-header">
+      <span class="help-section-icon">🏔️</span>
+      <span class="help-section-title">The Quest Board</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>Each colored card = one milestone. Arrows show recommended sequence.</li>
+        <li><strong>Click a card</strong> → opens the Candy Land detail path for that milestone.</li>
+        <li><strong>⚙ icon</strong> (appears on hover) → quick-edit modal: update status + add notes without leaving the board.</li>
+        <li><strong>XP bar</strong> in the header fills as you complete steps. Fills completely → level up animation.</li>
+        <li>Progress rings on each track header show % complete for that track. Keyboard: <span class="kbd">Enter</span> on a focused card = open it.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 4. Candy Land Path -->
+  <details class="help-section-card" data-color="package">
+    <summary class="help-section-header">
+      <span class="help-section-icon">🍬</span>
+      <span class="help-section-title">Candy Land Path</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>Click any milestone card to enter its step-by-step Candy Land path.</li>
+        <li>Your <strong>glowing avatar</strong> stands on your current step. ✓ = done. 🔒 = locked (complete steps in order).</li>
+        <li><strong>Click a step</strong> → opens a drawer with the full checklist + description + "Start Focus" button.</li>
+        <li>Check off all checklist items → "Mark step done" button appears → earns XP.</li>
+        <li><strong>Robustness Gate</strong> (red shield) at the end = Nature-publication-quality checkpoint. Must pass before the milestone reward unlocks.</li>
+      </ul>
+      <div class="step-badges">
+        <span class="step-badge code">🔴 Code</span>
+        <span class="step-badge figure">🟠 Figure</span>
+        <span class="step-badge wetlab">🟢 Wet Lab</span>
+        <span class="step-badge learning">🟡 Learning</span>
+        <span class="step-badge validation">🔵 Validation</span>
+        <span class="step-badge writing">🟣 Writing</span>
+        <span class="step-badge setup">⚫ Setup</span>
+      </div>
+      <ul style="margin-top:10px">
+        <li>Keyboard: <span class="kbd">←</span> <span class="kbd">→</span> to navigate between steps.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 5. Focus Mode -->
+  <details class="help-section-card" data-color="cursor">
+    <summary class="help-section-header">
+      <span class="help-section-icon">⏱️</span>
+      <span class="help-section-title">Focus Mode</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>Shows <strong>ONE task</strong>, a 90-min countdown, and your session count for that step.</li>
+        <li><strong>Browser tab title</strong> shows the timer (<code>⏱ 87:32 — Step Name</code>) — visible without switching windows.</li>
+        <li>Session dots: ● ● ○ = 2 done, 1 remaining. Each dot = one 90-min block.</li>
+        <li>Timer hits 0:00 → auto-logs the session, shows your daily progress threshold, offers "Next block →".</li>
+        <li><strong>Lead time banners</strong>: yellow/red warnings if a compute-heavy task (decoder, SG Booster, photobleacher) is approaching its start deadline. Keyboard: <span class="kbd">Space</span> = start/pause timer.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 6. Weekly Schedule -->
+  <details class="help-section-card" data-color="learning">
+    <summary class="help-section-header">
+      <span class="help-section-icon">📅</span>
+      <span class="help-section-title">Weekly Schedule</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li><strong>Open every Monday morning</strong> for the weekly planning modal: set target blocks, mark lab days, assign tasks.</li>
+        <li><strong>Week at a Glance</strong>: 7 columns, each showing blocks completed vs. target. Color = day quality.</li>
+        <li><strong>Weekly Block Chart</strong>: bar chart of deep blocks per day over 3 weeks. This is your PhD velocity — trend up = good.</li>
+        <li><strong>Daily Triage</strong> (2-min flow): pick your 3 tasks for today → done. No decision paralysis.</li>
+        <li><strong>Flex buffer</strong>: 2 unassigned blocks per week absorb overflow before carry-forward triggers. Carry-forward never lets any day accumulate more than 4 blocks in the queue.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 7. Sample Tracker -->
+  <details class="help-section-card" data-color="career">
+    <summary class="help-section-header">
+      <span class="help-section-icon">🧫</span>
+      <span class="help-section-title">Sample Tracker</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>Tracks all samples: <strong>BD2 · DG Neurogenesis · ACC Bipolar · AD/FTD</strong>. One tab per project.</li>
+        <li>Each row = one sample × one brain area. Pipeline status updates as you check off steps.</li>
+        <li><strong>Protocol Planner</strong>: set "complete dataset by [date]" → board calculates your protocol start date (with buffer). Never start too late.</li>
+        <li><strong>Booking Planner</strong>: enter your GenePS scope booking date → board shows every key milestone date working backward (booster, photobleacher, probe hyb, antibody start…).</li>
+        <li><strong>Parallelization checker</strong>: shows which protocol days are safe for 2 samples. Photobleacher (1 unit) flagged as bottleneck. Stable at 4°C for 10 days after photobleaching — board tracks this window. Google Sheets sync: paste public Sheet URL → board reads live data.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 8. Protocol Key Facts -->
+  <details class="help-section-card" data-color="flagship2">
+    <summary class="help-section-header">
+      <span class="help-section-icon">🔬</span>
+      <span class="help-section-title">Protocol Key Facts</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <div class="protocol-table-wrap">
+        <table class="protocol-table">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Duration</th>
+              <th>Hands-on</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Antibody staining (Day 1)</td>
+              <td>~8 hr total</td>
+              <td>~2 hr</td>
+              <td>Overnight primary Ab @ 4°C</td>
+            </tr>
+            <tr>
+              <td>Antibody staining (Day 2)</td>
+              <td>~8 hr total</td>
+              <td>~1.2 hr</td>
+              <td>Overnight oligo-conj @ 4°C</td>
+            </tr>
+            <tr>
+              <td>RNA stab + Hydrogel + Digestion (Day 3)</td>
+              <td>Overnight</td>
+              <td>~2.3 hr</td>
+              <td>Overnight digestion @ 37°C</td>
+            </tr>
+            <tr>
+              <td>Probe hybridization</td>
+              <td>36–72 hr</td>
+              <td>~35 min</td>
+              <td>v1000 panel: 36 hr min</td>
+            </tr>
+            <tr>
+              <td>Post-hyb wash + Securing</td>
+              <td>~5 hr</td>
+              <td>~1.25 hr</td>
+              <td>Stop point available</td>
+            </tr>
+            <tr>
+              <td>SG Booster</td>
+              <td>24 hr</td>
+              <td>~45 min</td>
+              <td>1 sample/unit; 4 units (shared)</td>
+            </tr>
+            <tr>
+              <td>Photobleaching</td>
+              <td>24 hr</td>
+              <td>~35 min</td>
+              <td class="bottleneck">⚠ BOTTLENECK: 1 unit only</td>
+            </tr>
+            <tr>
+              <td>Stable @ 4°C</td>
+              <td>up to 10 days</td>
+              <td>—</td>
+              <td>Use this window to book scope</td>
+            </tr>
+            <tr>
+              <td>GenePS imaging</td>
+              <td>6–7 days</td>
+              <td>~1 hr setup</td>
+              <td>4 scopes (shared)</td>
+            </tr>
+            <tr>
+              <td>Data transfer (HD + server)</td>
+              <td>24–36 hr each</td>
+              <td>~30 min</td>
+              <td>Can run in parallel</td>
+            </tr>
+            <tr class="total-row">
+              <td><strong>Total calendar time</strong></td>
+              <td><strong>~17–27 days</strong></td>
+              <td><strong>~9.5 hr total</strong></td>
+              <td>Depends on booking availability</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+
+  <!-- 9. Misc Tasks -->
+  <details class="help-section-card" data-color="methods">
+    <summary class="help-section-header">
+      <span class="help-section-icon">📋</span>
+      <span class="help-section-title">Misc Tasks</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>Lives at <strong>misc.html</strong> — completely separate from the PhD board.</li>
+        <li>Uses your <strong>admin block quota</strong> (1–2/day) — never touches deep work blocks.</li>
+        <li>Three piles: <strong>"This week"</strong> (external deadline) · <strong>"Watching"</strong> (delegated) · <strong>"Someday maybe"</strong> (no deadline).</li>
+        <li><strong>Delegated tasks</strong> (⬜): tracked so you can follow up, but don't count toward your day.</li>
+        <li>Weekly: review "Someday maybe" and ask if you can drop items entirely.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 10. XP & Levels -->
+  <details class="help-section-card" data-color="package">
+    <summary class="help-section-header">
+      <span class="help-section-icon">⭐</span>
+      <span class="help-section-title">XP &amp; Levels</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <div class="level-ladder">
+        <div class="level-row">
+          <span class="level-badge-num">Lv.1</span>
+          <span class="level-name">Graduate Student</span>
+          <span class="level-xp">0 XP</span>
+          <span class="level-desc">The journey begins</span>
+        </div>
+        <div class="level-row">
+          <span class="level-badge-num">Lv.2</span>
+          <span class="level-name">Coder</span>
+          <span class="level-xp">50 XP</span>
+          <span class="level-desc">txomics on GitHub</span>
+        </div>
+        <div class="level-row">
+          <span class="level-badge-num">Lv.3</span>
+          <span class="level-name">Data Wrangler</span>
+          <span class="level-xp">150 XP</span>
+          <span class="level-desc">First QC figures</span>
+        </div>
+        <div class="level-row">
+          <span class="level-badge-num">Lv.4</span>
+          <span class="level-name">Analyst</span>
+          <span class="level-xp">300 XP</span>
+          <span class="level-desc">First preprint drafted</span>
+        </div>
+        <div class="level-row">
+          <span class="level-badge-num">Lv.5</span>
+          <span class="level-name">Methods Developer</span>
+          <span class="level-xp">500 XP</span>
+          <span class="level-desc">EEF2/Assortativity submitted</span>
+        </div>
+        <div class="level-row">
+          <span class="level-badge-num">Lv.6</span>
+          <span class="level-name">Spatial Genomicist</span>
+          <span class="level-xp">750 XP</span>
+          <span class="level-desc">Flagship submitted</span>
+        </div>
+        <div class="level-row">
+          <span class="level-badge-num">Lv.7</span>
+          <span class="level-name">ML Neuroscientist</span>
+          <span class="level-xp">1050 XP</span>
+          <span class="level-desc">CONCORD SAE submitted</span>
+        </div>
+        <div class="level-row">
+          <span class="level-badge-num">Lv.8</span>
+          <span class="level-name">PhD</span>
+          <span class="level-xp">1400 XP</span>
+          <span class="level-desc">Defense. Altos / Genentech / Illumina.</span>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- 11. Adding Projects -->
+  <details class="help-section-card" data-color="cursor">
+    <summary class="help-section-header">
+      <span class="help-section-icon">➕</span>
+      <span class="help-section-title">Adding Projects</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li>Main board → scroll to bottom → <strong>"+ Add Project"</strong> button.</li>
+        <li>Pre-filled templates: <strong>DG Neurogenesis</strong> and <strong>ACC Bipolar</strong> (click to use).</li>
+        <li>Custom: enter project name, description, emoji.</li>
+        <li>New project gets its own track on the board + its own tab in the sample tracker.</li>
+        <li>Milestone steps in custom projects are added manually via the detail page.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- 12. GitHub & Saving -->
+  <details class="help-section-card" data-color="network">
+    <summary class="help-section-header">
+      <span class="help-section-icon">💾</span>
+      <span class="help-section-title">GitHub &amp; Saving</span>
+      <svg class="help-section-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </summary>
+    <div class="help-section-body">
+      <ul>
+        <li><strong>On GitHub Pages</strong>: localStorage saves all progress automatically. No account needed.</li>
+        <li><strong>Daily snapshot Action</strong>: commits a JSON file every day at 6am PDT. Automatic version history.</li>
+        <li><strong>Weekly review Action</strong>: creates a GitHub Issue every Monday with reflection + planning template.</li>
+        <li><strong>Google Sheets sync</strong> (tracker): make sheet public (view only) → paste URL → data loads live.</li>
+        <li>See <strong>GITHUB_SETUP.md</strong> in the repo for step-by-step instructions. To export manually: Quest Board → <strong>"Export JSON"</strong> button → save the file.</li>
+      </ul>
+    </div>
+  </details>
+
+</div><!-- /help-sections -->
+
+<!-- ===== KEYBOARD SHORTCUTS (always visible) ===== -->
+<div class="shortcuts-section">
+  <div class="shortcuts-title">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+    Keyboard Shortcuts
+  </div>
+  <div class="shortcuts-table-wrap">
+    <table class="shortcuts-table">
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kbd">?</span></td>
+          <td>Open this help page</td>
+        </tr>
+        <tr>
+          <td><span class="kbd">Esc</span></td>
+          <td>Close any modal or drawer</td>
+        </tr>
+        <tr>
+          <td><span class="kbd">Space</span></td>
+          <td>Start / pause focus timer</td>
+        </tr>
+        <tr>
+          <td><span class="kbd">←</span> <span class="kbd">→</span></td>
+          <td>Navigate steps on detail page</td>
+        </tr>
+        <tr>
+          <td><span class="kbd">D</span></td>
+          <td>Mark current step done (detail page, checklist complete)</td>
+        </tr>
+        <tr>
+          <td><span class="kbd">Enter</span></td>
+          <td>Open focused card</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="help-footer">
+  <p>Built for Rahma's PhD @ Caltech Bioengineering · November 2026 · 🧬</p>
+  <p>Last updated: April 2026</p>
+</footer>
+
+<script>
+  /* ============================================================
+     HELP PAGE — JAVASCRIPT
+     ============================================================ */
+
+  // ---------- Theme toggle (mirrors the rest of the site) ----------
+  const themeBtn = document.querySelector('[data-theme-toggle]');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const html = document.documentElement;
+      const isDark = html.getAttribute('data-theme') === 'dark';
+      html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      try { localStorage.setItem('theme', isDark ? 'light' : 'dark'); } catch(e){}
+    });
+  }
+  // Restore saved theme
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  } catch(e){}
+
+  // ---------- Search ----------
+  const searchInput = document.getElementById('helpSearch');
+  const noResults   = document.getElementById('helpNoResults');
+  const allCards    = document.querySelectorAll('.help-section-card');
+
+  function normalize(s) {
+    return s.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+  }
+
+  searchInput.addEventListener('input', () => {
+    const q = normalize(searchInput.value);
+    let anyVisible = false;
+
+    allCards.forEach(card => {
+      if (!q) {
+        card.style.display = '';
+        anyVisible = true;
+        return;
+      }
+      const text = normalize(card.textContent);
+      const match = text.includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) {
+        anyVisible = true;
+        // Auto-open matching sections when searching
+        if (!card.open) card.open = true;
+      }
+    });
+
+    noResults.classList.toggle('visible', !anyVisible);
+  });
+
+  // Clear search on Escape
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      searchInput.dispatchEvent(new Event('input'));
+      searchInput.blur();
+    }
+  });
+
+  // ---------- Global keyboard shortcut: ? → help.html ----------
+  document.addEventListener('keydown', e => {
+    // Don't intercept if user is typing in an input
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+
+    if (e.key === '?' || e.key === '/') {
+      // Already on help page, focus search instead
+      e.preventDefault();
+      searchInput.focus();
+    }
+  });
+
+  // ---------- Section headers: keyboard accessibility ----------
+  allCards.forEach(card => {
+    const summary = card.querySelector('summary');
+    if (summary) {
+      summary.setAttribute('tabindex', '0');
+    }
+  });
+</script>
+
+</body>
+</html>
