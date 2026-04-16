@@ -21,6 +21,7 @@
     <div class="detail-milestone-title" id="detailTitle">Loading…</div>
     <div class="xp-progress-badge" id="xpProgressBadge">0 / 0 XP</div>
     <button class="focus-mode-btn" id="detailFocusBtn" style="flex-shrink:0">⏱ Focus</button>
+    <button class="edit-steps-btn" id="editStepsBtn" title="Add, remove or edit steps in this milestone">✏️ Edit Steps</button>
     <!-- Lead time warning (inline) -->
     <div id="detailLeadWarn" class="lead-time-badge" style="display:none"></div>
   </div>
@@ -30,6 +31,23 @@
 <div class="candy-path-container">
   <div class="candy-path" id="candyPath">
     <!-- Rendered by JS -->
+  </div>
+</div>
+
+<!-- EDIT STEPS MODAL -->
+<div class="edit-steps-overlay" id="editStepsOverlay" style="display:none" role="dialog" aria-modal="true" aria-label="Edit steps">
+  <div class="edit-steps-modal">
+    <div class="edit-steps-header">
+      <h3 class="edit-steps-title">✏️ Edit Steps</h3>
+      <button class="edit-steps-close" id="editStepsClose" aria-label="Close">&times;</button>
+    </div>
+    <p class="edit-steps-hint">Edits are saved locally and override the defaults for this milestone only.</p>
+    <div class="edit-steps-list" id="editStepsList"></div>
+    <div class="edit-steps-footer">
+      <button class="edit-add-btn" id="editAddStepBtn">+ Add Step</button>
+      <button class="edit-reset-btn" id="editResetBtn">Reset to defaults</button>
+      <button class="edit-apply-btn" id="editApplyBtn">✓ Apply &amp; Close</button>
+    </div>
   </div>
 </div>
 
@@ -151,10 +169,18 @@ function getAccentVar(category) {
   return map[category] || 'var(--c-flagship)';
 }
 
+// Custom steps helpers (defined early so buildFlatSteps can use them)
+function _getCustomStepsEarly(milestoneId) {
+  try { return JSON.parse(localStorage.getItem('custom_steps_' + milestoneId) || 'null'); } catch { return null; }
+}
+
 // Build flat steps list including gate + reward sentinel
 function buildFlatSteps(milestone) {
   const flat = [];
-  (milestone.steps || []).forEach(step => {
+  // Use custom steps if present, otherwise use milestone.steps
+  const custom = _getCustomStepsEarly(milestone.id);
+  const stepsToUse = custom !== null ? custom : (milestone.steps || []);
+  stepsToUse.forEach(step => {
     flat.push({ step, milestoneId: milestone.id, isGate: false, isReward: false });
   });
   if (milestone.gate) {
@@ -613,8 +639,123 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === document.getElementById('stepDrawerOverlay')) closeStepDrawer();
   });
   document.getElementById('drawerMarkDone').addEventListener('click', markStepDone);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStepDrawer(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeStepDrawer(); closeEditModal(); } });
+
+  // Edit steps modal
+  document.getElementById('editStepsBtn').addEventListener('click', openEditModal);
+  document.getElementById('editStepsClose').addEventListener('click', closeEditModal);
+  document.getElementById('editAddStepBtn').addEventListener('click', addNewStep);
+  document.getElementById('editResetBtn').addEventListener('click', resetToDefault);
+  document.getElementById('editApplyBtn').addEventListener('click', applyEditChanges);
+  document.getElementById('editStepsOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('editStepsOverlay')) closeEditModal();
+  });
 });
+
+// ---- STEP EDITING ----
+function openEditModal() {
+  if (!currentMilestone) return;
+  const overlay = document.getElementById('editStepsOverlay');
+  renderEditStepsList();
+  overlay.style.display = 'flex';
+  setTimeout(() => overlay.classList.add('open'), 10);
+}
+function closeEditModal() {
+  const overlay = document.getElementById('editStepsOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => { overlay.style.display = 'none'; }, 250);
+}
+
+// Custom steps are stored in localStorage under key `custom_steps_<milestoneId>`
+function getCustomSteps(milestoneId) {
+  try { return JSON.parse(localStorage.getItem('custom_steps_' + milestoneId) || 'null'); } catch { return null; }
+}
+function saveCustomSteps(milestoneId, steps) {
+  localStorage.setItem('custom_steps_' + milestoneId, JSON.stringify(steps));
+}
+
+// Merged steps: custom overrides default if present
+function getMergedSteps(milestone) {
+  const custom = getCustomSteps(milestone.id);
+  return custom !== null ? custom : (milestone.steps || []);
+}
+
+function renderEditStepsList() {
+  const mid = currentMilestone.id;
+  const steps = getMergedSteps(currentMilestone);
+  const list = document.getElementById('editStepsList');
+  list.innerHTML = '';
+
+  steps.forEach((step, i) => {
+    const row = document.createElement('div');
+    row.className = 'edit-step-row';
+    row.dataset.idx = i;
+    row.innerHTML = `
+      <div class="edit-step-drag" title="Drag to reorder">↕</div>
+      <div class="edit-step-info">
+        <input class="edit-step-title-input" value="${escHtml(step.title)}" placeholder="Step title" data-idx="${i}" />
+        <input class="edit-step-desc-input" value="${escHtml(step.desc || '')}" placeholder="Description (optional)" data-idx="${i}" />
+      </div>
+      <button class="edit-step-remove-btn" data-idx="${i}" title="Remove step">&times;</button>
+    `;
+    row.querySelector('.edit-step-remove-btn').addEventListener('click', () => {
+      const s = getMergedSteps(currentMilestone);
+      s.splice(i, 1);
+      saveCustomSteps(mid, s);
+      renderEditStepsList();
+    });
+    row.querySelector('.edit-step-title-input').addEventListener('input', e => {
+      const s = getMergedSteps(currentMilestone);
+      s[i].title = e.target.value;
+      saveCustomSteps(mid, s);
+    });
+    row.querySelector('.edit-step-desc-input').addEventListener('input', e => {
+      const s = getMergedSteps(currentMilestone);
+      s[i].desc = e.target.value;
+      saveCustomSteps(mid, s);
+    });
+    list.appendChild(row);
+  });
+}
+
+function addNewStep() {
+  const mid = currentMilestone.id;
+  const s = getMergedSteps(currentMilestone);
+  const newStep = {
+    id: mid + '-custom-' + Date.now(),
+    title: '',
+    type: 'code',
+    desc: '',
+    checklist: [],
+    xp: 5,
+    cognitive_type: 'deep'
+  };
+  s.push(newStep);
+  saveCustomSteps(mid, s);
+  renderEditStepsList();
+  // Focus the new title input
+  const inputs = document.querySelectorAll('.edit-step-title-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function resetToDefault() {
+  if (!currentMilestone) return;
+  if (!confirm('Reset to the original steps? Your custom edits will be lost.')) return;
+  localStorage.removeItem('custom_steps_' + currentMilestone.id);
+  renderEditStepsList();
+}
+
+function applyEditChanges() {
+  closeEditModal();
+  // Re-read merged steps and patch into currentMilestone for rendering
+  currentMilestone = Object.assign({}, currentMilestone, { steps: getMergedSteps(currentMilestone) });
+  renderPath(currentMilestone);
+  updateXPBadge(currentMilestone);
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function checkDetailLeadWarning(milestone) {
   const warnDiv = document.getElementById('detailLeadWarn');

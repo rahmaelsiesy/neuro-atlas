@@ -27,14 +27,21 @@
   --t-fast: 140ms var(--ease);
   --t-med:  220ms var(--ease);
 
-  /* Candy Land track colors */
-  --c-flagship: #f97316;  /* orange */
-  --c-methods:  #8b5cf6;  /* violet */
-  --c-network:  #06b6d4;  /* cyan */
-  --c-package:  #10b981;  /* emerald */
-  --c-cursor:   #3b82f6;  /* blue */
-  --c-learning: #f59e0b;  /* amber */
-  --c-career:   #ec4899;  /* pink */
+  /* Track colors — Pastel Studio palette (soft, muted, colorful) */
+  --c-dlpfc:    #f4a26d;  /* warm peach — RUSH DLPFC AD */
+  --c-dg:       #7ec8a0;  /* sage green — DG Neurogenesis */
+  --c-fic:      #a78bfa;  /* soft lavender — RUSH FIC AD */
+  --c-bd2:      #f78ca0;  /* dusty rose — BD2 ACC */
+  --c-eef2:     #5bc4d6;  /* powder blue — EEF2 Methods (prioritized) */
+  --c-package:  #a3d977;  /* pistachio — txomics */
+  --c-learning: #fbd26a;  /* butter yellow — Learning */
+  --c-career:   #f9a8d4;  /* blush pink — Career */
+
+  /* Legacy aliases for backward compat */
+  --c-flagship: var(--c-dlpfc);
+  --c-methods:  var(--c-fic);
+  --c-network:  var(--c-eef2);
+  --c-cursor:   var(--c-dg);
 
   /* Status colors */
   --s-done:        #10b981;
@@ -49,36 +56,43 @@
   --w-page: 1320px;
 }
 
-/* ---------- LIGHT MODE ---------- */
-:root, [data-theme="light"] {
-  --bg:          #f8f7ff;
-  --bg-2:        #ffffff;
-  --surface:     #ffffff;
-  --surface-2:   #f3f2fd;
-  --border:      #e2e0f5;
-  --text:        #1a1830;
-  --text-muted:  #6b68a0;
-  --text-faint:  #b4b2d4;
-  --shadow-sm:   0 1px 3px rgba(60,50,120,0.08);
-  --shadow-md:   0 4px 16px rgba(60,50,120,0.12);
-  --shadow-lg:   0 12px 40px rgba(60,50,120,0.16);
-  --hero-grad:   linear-gradient(135deg, #312e81 0%, #5b21b6 40%, #0f766e 100%);
+/* ---------- NEON NOIR (dark default) ---------- */
+/* Charcoal bg + thin glowing borders + pastel accents on dark */
+:root, [data-theme="dark"] {
+  --bg:         #16151d;  /* near-black charcoal */
+  --bg-2:       #1c1b26;  /* slightly lighter for header/cards */
+  --surface:    #211f2e;  /* glass card surface */
+  --surface-2:  #2a2840;  /* hover/selected surface */
+  --border:     rgba(255,255,255,0.08);  /* barely-there thin border */
+  --border-glow: rgba(167,139,250,0.25); /* accent glow border */
+  --text:       #f0eeff;  /* warm near-white */
+  --text-muted: #9490c0;  /* soft muted purple-grey */
+  --text-faint: #3e3c5a;  /* very dim */
+  --shadow-sm:  0 1px 4px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg:  0 12px 48px rgba(0,0,0,0.6);
+  --hero-grad:  linear-gradient(135deg, #1a1830 0%, #251d42 50%, #1a2535 100%);
+  --glass:      rgba(255,255,255,0.03);
+  --glass-border: rgba(255,255,255,0.07);
 }
 
-/* ---------- DARK MODE ---------- */
-[data-theme="dark"] {
-  --bg:         #0d0b1a;
-  --bg-2:       #120f22;
-  --surface:    #181529;
-  --surface-2:  #1e1b33;
-  --border:     #2d2850;
-  --text:       #e8e6ff;
-  --text-muted: #8e8bb5;
-  --text-faint: #4a4770;
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.4);
-  --shadow-lg:  0 12px 40px rgba(0,0,0,0.5);
-  --hero-grad:  linear-gradient(135deg, #1e1560 0%, #3b1d8f 40%, #0a4a44 100%);
+/* ---------- LIGHT MODE (Pastel Studio) ---------- */
+[data-theme="light"] {
+  --bg:          #faf9f7;  /* warm off-white */
+  --bg-2:        #ffffff;
+  --surface:     #ffffff;
+  --surface-2:   #f5f3f0;
+  --border:      rgba(0,0,0,0.08);
+  --border-glow: rgba(167,139,250,0.3);
+  --text:        #1c1a2e;
+  --text-muted:  #6b6690;
+  --text-faint:  #c4c2d8;
+  --shadow-sm:   0 1px 3px rgba(60,50,120,0.07);
+  --shadow-md:   0 4px 16px rgba(60,50,120,0.10);
+  --shadow-lg:   0 12px 40px rgba(60,50,120,0.14);
+  --hero-grad:   linear-gradient(135deg, #e8e4f7 0%, #f0e8ff 50%, #e4f0f8 100%);
+  --glass:       rgba(255,255,255,0.7);
+  --glass-border: rgba(0,0,0,0.06);
 }
 
 /* ---------- BASE RESET ---------- */
@@ -325,12 +339,111 @@ h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; text-wrap:
   border-radius: var(--r-full);
   flex-shrink: 0;
 }
-.dot-flagship { background: var(--c-flagship); }
-.dot-methods  { background: var(--c-methods);  }
+/* New track dots */
+.dot-dlpfc    { background: var(--c-dlpfc);    }
+.dot-fic      { background: var(--c-fic);      }
+.dot-bd2      { background: var(--c-bd2);      }
+.dot-dg       { background: var(--c-dg);       }
+.dot-eef2     { background: var(--c-eef2);     }
 .dot-package  { background: var(--c-package);  }
 .dot-learning { background: var(--c-learning); }
 .dot-career   { background: var(--c-career);   }
 .dot-postgrad { background: var(--c-network);  }
+/* Legacy aliases */
+.dot-flagship { background: var(--c-flagship); }
+.dot-methods  { background: var(--c-methods);  }
+
+/* ============================================================
+   TRACK BADGES (Required / Optional / Post-Grad)
+   ============================================================ */
+.required-badge,
+.optional-badge,
+.postgrad-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--r-full);
+  vertical-align: middle;
+  margin-left: var(--sp-2);
+  line-height: 1.5;
+}
+.required-badge {
+  background: rgba(244,162,109,0.18);  /* peach tint — matches dlpfc */
+  color: #e8894a;
+  border: 1px solid rgba(244,162,109,0.35);
+}
+.optional-badge {
+  background: rgba(91,196,214,0.15);   /* powder blue tint — matches eef2 */
+  color: #4aafbf;
+  border: 1px solid rgba(91,196,214,0.30);
+}
+.postgrad-badge {
+  background: rgba(156,163,175,0.15);
+  color: var(--text-muted);
+  border: 1px solid rgba(156,163,175,0.25);
+}
+
+/* ============================================================
+   REQUIRED TRACK — subtle left accent glow
+   ============================================================ */
+.track-required {
+  border-left: 3px solid var(--c-dlpfc);
+}
+.track-required[data-track="fic"]  { border-left-color: var(--c-fic); }
+.track-required[data-track="bd2"]  { border-left-color: var(--c-bd2); }
+.track-required[data-track="dg"]   { border-left-color: var(--c-dg);  }
+
+/* ============================================================
+   LEGEND CHIPS (tiny inline pills in legend bar)
+   ============================================================ */
+.legend-req-chip,
+.legend-opt-chip {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: var(--r-full);
+  vertical-align: middle;
+  margin-left: 3px;
+}
+.legend-req-chip {
+  background: rgba(244,162,109,0.18);
+  color: #e8894a;
+  border: 1px solid rgba(244,162,109,0.30);
+}
+.legend-opt-chip {
+  background: rgba(91,196,214,0.15);
+  color: #4aafbf;
+  border: 1px solid rgba(91,196,214,0.25);
+}
+
+/* ============================================================
+   DEP ARROW LEGEND CHIP (in legend bar)
+   ============================================================ */
+.dep-arrow-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 2px 9px;
+  cursor: default;
+  white-space: nowrap;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.dep-arrow-legend:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
 
 /* ============================================================
    BOARD CONTAINER & TRACKS
@@ -342,6 +455,15 @@ h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; text-wrap:
   display: flex;
   flex-direction: column;
   gap: var(--sp-10);
+  position: relative; /* required for dep-arrows SVG overlay */
+}
+
+/* Dependency arrow overlay — drawn by JS in All Projects view */
+.dep-arrows-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .track {
@@ -821,6 +943,208 @@ h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; text-wrap:
   font-family: var(--font-body);
 }
 .focus-mode-btn:hover { background: rgba(249,115,22,0.28); }
+
+/* Edit Steps button (header) */
+.edit-steps-btn {
+  background: rgba(167,139,250,0.12);
+  color: var(--c-fic);
+  border: 1px solid rgba(167,139,250,0.28);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-family: var(--font-body);
+  flex-shrink: 0;
+}
+.edit-steps-btn:hover { background: rgba(167,139,250,0.22); }
+
+/* ============================================================
+   EDIT STEPS MODAL
+   ============================================================ */
+.edit-steps-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.edit-steps-overlay.open { opacity: 1; }
+.edit-steps-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
+  width: min(600px, 95vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  overflow: hidden;
+  transform: scale(0.96);
+  transition: transform 0.2s;
+}
+.edit-steps-overlay.open .edit-steps-modal { transform: scale(1); }
+.edit-steps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-4) var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.edit-steps-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.edit-steps-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--r-md);
+  transition: background 0.15s;
+}
+.edit-steps-close:hover { background: var(--surface-2); color: var(--text); }
+.edit-steps-hint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0;
+  padding: var(--sp-2) var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+.edit-steps-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.edit-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-3);
+  transition: border-color 0.15s;
+}
+.edit-step-row:hover { border-color: var(--c-fic); }
+.edit-step-drag {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  padding-top: 6px;
+  cursor: grab;
+  flex-shrink: 0;
+}
+.edit-step-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.edit-step-title-input,
+.edit-step-desc-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-family: var(--font-body);
+  padding: 6px 10px;
+  font-size: var(--text-sm);
+  width: 100%;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.edit-step-title-input {
+  font-weight: 600;
+}
+.edit-step-desc-input {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.edit-step-title-input:focus,
+.edit-step-desc-input:focus {
+  outline: none;
+  border-color: var(--c-fic);
+}
+.edit-step-remove-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--r-md);
+  transition: all 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.edit-step-remove-btn:hover {
+  background: rgba(239,68,68,0.12);
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.3);
+}
+.edit-steps-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+.edit-add-btn {
+  background: rgba(163,217,119,0.15);
+  color: var(--c-package);
+  border: 1px solid rgba(163,217,119,0.3);
+  border-radius: var(--r-md);
+  padding: 7px 16px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.edit-add-btn:hover { background: rgba(163,217,119,0.25); }
+.edit-reset-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--r-md);
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: auto;
+}
+.edit-reset-btn:hover { border-color: #ef4444; color: #ef4444; }
+.edit-apply-btn {
+  background: var(--c-fic);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 7px 20px;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.edit-apply-btn:hover { opacity: 0.88; }
 
 /* ---------- TRACKER BUTTON ---------- */
 .tracker-btn {

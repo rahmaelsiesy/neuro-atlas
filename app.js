@@ -113,7 +113,8 @@ function updateCountdown() {
 }
 
 // ---- RENDER BOARD ----
-const TRACK_ORDER = ['flagship', 'methods', 'network', 'package', 'cursor', 'learning', 'career'];
+// Track order: 4 required papers first, then optional/tools
+const TRACK_ORDER = ['dlpfc', 'fic', 'bd2', 'dg', 'eef2', 'package', 'cursor', 'network', 'learning', 'career'];
 
 // ---- VIEW MODE ----
 // 'active' = default: tracks with in-progress milestones float to top, empty tracks collapsed
@@ -150,15 +151,23 @@ function getActiveTrackOrder() {
 
 function getAccentColor(category) {
   const map = {
-    flagship: 'var(--c-flagship)',
-    methods:  'var(--c-methods)',
-    network:  'var(--c-network)',
+    // Required papers
+    dlpfc:    'var(--c-dlpfc)',
+    fic:      'var(--c-fic)',
+    bd2:      'var(--c-bd2)',
+    dg:       'var(--c-dg)',
+    // Optional / tools
+    eef2:     'var(--c-eef2)',
     package:  'var(--c-package)',
-    cursor:   'var(--c-cursor)',
+    cursor:   'var(--c-dg)',
+    network:  '#9ca3af',
     learning: 'var(--c-learning)',
     career:   'var(--c-career)',
+    // Legacy aliases
+    flagship: 'var(--c-dlpfc)',
+    methods:  'var(--c-eef2)',
   };
-  return map[category] || 'var(--c-flagship)';
+  return map[category] || 'var(--c-dlpfc)';
 }
 
 function getStatusIcon(status) {
@@ -257,6 +266,7 @@ function renderTrackProgress(trackId, milestones) {
 function renderAllTracks() {
   const orderedTracks = currentView === 'active' ? getActiveTrackOrder() : TRACK_ORDER;
   const board = document.querySelector('.board-container');
+  if (_depArrowSVG) { _depArrowSVG.remove(); _depArrowSVG = null; }
 
   orderedTracks.forEach(trackId => {
     const milestones = QUEST_DATA[trackId];
@@ -291,6 +301,7 @@ function renderAllTracks() {
   renderCustomProjects();
   updateGlobalStats();
   updateXPBar();
+  scheduleDepArrows();
 }
 
 function updateGlobalStats() {
@@ -561,7 +572,8 @@ function triggerConfetti() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  const colors = ['#f97316','#8b5cf6','#06b6d4','#10b981','#3b82f6','#f59e0b','#ec4899','#ffffff'];
+  // Pastel Studio palette — matches new track colors
+  const colors = ['#f4a26d','#a78bfa','#f78ca0','#7ec8a0','#5bc4d6','#a3d977','#fbd26a','#f9a8d4','#ffffff'];
   const particles = Array.from({length: 120}, () => ({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height - canvas.height,
@@ -647,6 +659,170 @@ function insertTrackArrows() {
   });
 }
 
+// ---- DEPENDENCY ARROWS (SVG overlay, All Projects view only) ----
+
+// Build a lookup: milestoneId → {element, accent color}
+function buildMilestoneCardMap() {
+  const map = {};
+  // Gather all tracked milestones
+  TRACK_ORDER.forEach(trackId => {
+    (QUEST_DATA[trackId] || []).forEach(m => {
+      const el = document.querySelector(`[data-id="${m.id}"]`);
+      if (el) map[m.id] = { el, color: resolveCSSVar(getAccentColor(m.category || trackId)) };
+    });
+  });
+  return map;
+}
+
+// Resolve a CSS variable like 'var(--c-flagship)' to a hex color
+function resolveCSSVar(val) {
+  if (!val || !val.startsWith('var(')) return val || '#a78bfa';
+  const name = val.slice(4, -1).trim();
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#a78bfa';
+}
+
+// Collect all depends_on edges across all tracks
+function collectDependencyEdges() {
+  const edges = [];
+  TRACK_ORDER.forEach(trackId => {
+    (QUEST_DATA[trackId] || []).forEach(m => {
+      if (!m.depends_on || !m.depends_on.length) return;
+      m.depends_on.forEach(depId => {
+        // Only show cross-track deps (same-track are already sequential)
+        const depTrack = findTrackForMilestone(depId);
+        if (depTrack && depTrack !== trackId) {
+          edges.push({ from: depId, to: m.id, fromTrack: depTrack, toTrack: trackId });
+        }
+      });
+    });
+  });
+  return edges;
+}
+
+function findTrackForMilestone(milestoneId) {
+  for (const trackId of TRACK_ORDER) {
+    if ((QUEST_DATA[trackId] || []).some(m => m.id === milestoneId)) return trackId;
+  }
+  return null;
+}
+
+function getCardCenter(el, boardRect) {
+  const r = el.getBoundingClientRect();
+  return {
+    x: r.left - boardRect.left + r.width / 2,
+    y: r.top  - boardRect.top  + r.height / 2,
+    bottom: r.bottom - boardRect.top,
+    top:    r.top    - boardRect.top,
+    left:   r.left   - boardRect.left,
+    right:  r.right  - boardRect.left,
+  };
+}
+
+let _depArrowSVG = null;
+
+function drawDependencyArrows() {
+  const board = document.querySelector('.board-container');
+  if (!board) return;
+
+  // Remove old overlay
+  if (_depArrowSVG) { _depArrowSVG.remove(); _depArrowSVG = null; }
+
+  // Only show in 'all' view
+  if (currentView !== 'all') return;
+
+  const edges = collectDependencyEdges();
+  if (!edges.length) return;
+
+  const cardMap = buildMilestoneCardMap();
+  const boardRect = board.getBoundingClientRect();
+  const boardH = board.scrollHeight;
+  const boardW = board.scrollWidth;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'dep-arrows-overlay');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('width',  boardW);
+  svg.setAttribute('height', boardH);
+  svg.style.cssText = `position:absolute;top:0;left:0;width:${boardW}px;height:${boardH}px;pointer-events:none;z-index:5;overflow:visible;`;
+
+  // Add arrowhead defs (one per unique color)
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const usedColors = new Set();
+
+  edges.forEach(edge => {
+    const fromInfo = cardMap[edge.from];
+    const toInfo   = cardMap[edge.to];
+    if (!fromInfo || !toInfo) return;
+    usedColors.add(fromInfo.color);
+  });
+
+  usedColors.forEach(color => {
+    const safeId = 'arr-' + color.replace(/[^a-zA-Z0-9]/g, '');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', safeId);
+    marker.setAttribute('markerWidth', '8');
+    marker.setAttribute('markerHeight', '8');
+    marker.setAttribute('refX', '7');
+    marker.setAttribute('refY', '3');
+    marker.setAttribute('orient', 'auto');
+    marker.setAttribute('markerUnits', 'strokeWidth');
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrow.setAttribute('d', 'M0,0 L0,6 L8,3 z');
+    arrow.setAttribute('fill', color);
+    arrow.setAttribute('opacity', '0.55');
+    marker.appendChild(arrow);
+    defs.appendChild(marker);
+  });
+  svg.appendChild(defs);
+
+  edges.forEach(edge => {
+    const fromInfo = cardMap[edge.from];
+    const toInfo   = cardMap[edge.to];
+    if (!fromInfo || !toInfo) return;
+
+    const from = getCardCenter(fromInfo.el, boardRect);
+    const to   = getCardCenter(toInfo.el,   boardRect);
+    const color = fromInfo.color;
+    const safeId = 'arr-' + color.replace(/[^a-zA-Z0-9]/g, '');
+
+    // Route: exit bottom of source card, enter top of target card
+    // Use cubic bezier with vertical control points
+    const x1 = from.x, y1 = from.bottom - 4;
+    const x2 = to.x,   y2 = to.top + 4;
+    const cp1y = y1 + Math.abs(y2 - y1) * 0.45;
+    const cp2y = y2 - Math.abs(y2 - y1) * 0.45;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const d = `M ${x1} ${y1} C ${x1} ${cp1y}, ${x2} ${cp2y}, ${x2} ${y2}`;
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('stroke-dasharray', '5 4');
+    path.setAttribute('opacity', '0.45');
+    path.setAttribute('marker-end', `url(#${safeId})`);
+    // Tooltip on hover
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    const fromM = Object.values(QUEST_DATA).flat().find(m => m.id === edge.from);
+    const toM   = Object.values(QUEST_DATA).flat().find(m => m.id === edge.to);
+    title.textContent = `${fromM?.title || edge.from}  →  ${toM?.title || edge.to}`;
+    path.appendChild(title);
+    svg.appendChild(path);
+  });
+
+  // Make board relatively positioned so SVG overlay aligns
+  if (getComputedStyle(board).position === 'static') board.style.position = 'relative';
+  board.appendChild(svg);
+  _depArrowSVG = svg;
+}
+
+// Redraw after render + on resize
+function scheduleDepArrows() {
+  // Small delay to let DOM settle after render
+  clearTimeout(scheduleDepArrows._t);
+  scheduleDepArrows._t = setTimeout(drawDependencyArrows, 120);
+}
+
 // ---- INIT ----
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
@@ -658,6 +834,8 @@ document.addEventListener('DOMContentLoaded', () => {
   updateXPBar();
   setInterval(updateCountdown, 60000);
   initAddProjectModal();
+  scheduleDepArrows();
+  window.addEventListener('resize', scheduleDepArrows);
 });
 
 // ---- FOCUS MODE LAUNCHER (used by header button) ----

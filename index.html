@@ -104,16 +104,20 @@
   <div class="legend-inner">
     <span class="legend-title">Chapters</span>
     <div class="legend-items">
-      <div class="legend-item"><span class="legend-dot dot-flagship"></span> Flagship Paper</div>
-      <div class="legend-item"><span class="legend-dot dot-methods"></span> Methods Papers</div>
-      <div class="legend-item"><span class="legend-dot dot-package"></span> Package (txomics)</div>
-      <div class="legend-item"><span class="legend-dot dot-learning"></span> Learning Plan</div>
-      <div class="legend-item"><span class="legend-dot dot-career"></span> Career Milestones</div>
-      <div class="legend-item"><span class="legend-dot dot-postgrad"></span> Post-Graduation</div>
+      <div class="legend-item"><span class="legend-dot dot-dlpfc"></span> DLPFC AD <span class="legend-req-chip">Required</span></div>
+      <div class="legend-item"><span class="legend-dot dot-fic"></span> FIC AD <span class="legend-req-chip">Required</span></div>
+      <div class="legend-item"><span class="legend-dot dot-bd2"></span> BD2 ACC <span class="legend-req-chip">Required</span></div>
+      <div class="legend-item"><span class="legend-dot dot-dg"></span> DG Neuro <span class="legend-req-chip">Required</span></div>
+      <div class="legend-item"><span class="legend-dot dot-eef2"></span> EEF2 Methods <span class="legend-opt-chip">Optional</span></div>
+      <div class="legend-item"><span class="legend-dot dot-package"></span> txomics</div>
+      <div class="legend-item"><span class="legend-dot dot-learning"></span> Learning</div>
+      <div class="legend-item"><span class="legend-dot dot-career"></span> Career</div>
+      <div class="legend-item"><span class="legend-dot dot-postgrad"></span> Post-Grad</div>
     </div>
-    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span class="quadrant-pill q1-pill">Q1 Do Now</span>
       <span class="quadrant-pill q3-pill">Q3 Schedule</span>
+      <span class="dep-arrow-legend" title="Dashed colored lines show cross-track dependencies — visible in All Projects view">⤵ deps in All view</span>
       <div class="view-toggle" id="viewToggle">
         <button class="view-btn active" data-view="active" onclick="setView('active')">In Progress</button>
         <button class="view-btn" data-view="all" onclick="setView('all')">All Projects</button>
@@ -133,78 +137,111 @@
 <!-- MAIN BOARD -->
 <main class="board-container">
 
-  <!-- TRACK: FLAGSHIP PAPER -->
-  <section class="track" data-track="flagship">
+  <!-- REQUIRED PAPER 1: RUSH DLPFC AD -->
+  <section class="track track-required" data-track="dlpfc">
     <div class="track-header">
-      <div class="track-icon">🏔️</div>
+      <div class="track-icon">🧠</div>
       <div>
-        <h2 class="track-title">Flagship Paper</h2>
-        <p class="track-desc">Spatial AD/FTD Atlas · seqFISH · FIC + DLPFC + DG/HC</p>
+        <h2 class="track-title">RUSH DLPFC AD <span class="required-badge">Required</span></h2>
+        <p class="track-desc">Identify AD treatment targets & causes · Dorsolateral prefrontal cortex · seqFISH</p>
       </div>
-      <div class="track-progress-ring" data-track-id="flagship"></div>
+      <div class="track-progress-ring" data-track-id="dlpfc"></div>
     </div>
-    <div class="board-row" id="track-flagship">
-      <!-- filled by JS -->
-    </div>
+    <div class="board-row" id="track-dlpfc"></div>
   </section>
 
-  <!-- TRACK: METHODS & ANALYSIS PAPERS -->
-  <section class="track" data-track="methods">
+  <!-- REQUIRED PAPER 2: RUSH FIC AD -->
+  <section class="track track-required" data-track="fic">
     <div class="track-header">
-      <div class="track-icon">📡</div>
+      <div class="track-icon">🔬</div>
       <div>
-        <h2 class="track-title">Methods & Analysis Papers</h2>
-        <p class="track-desc">EEF2 · DAPI Ghost Cells · Tissue Assortativity · CONCORD Interpretability</p>
+        <h2 class="track-title">RUSH FIC AD <span class="required-badge">Required</span></h2>
+        <p class="track-desc">Identify AD targets · Agranular FIC (no L4) · VEN loss · Convergent targets with DLPFC</p>
       </div>
-      <div class="track-progress-ring" data-track-id="methods"></div>
+      <div class="track-progress-ring" data-track-id="fic"></div>
     </div>
-    <div class="board-row" id="track-methods">
-    </div>
+    <div class="board-row" id="track-fic"></div>
   </section>
 
-  <!-- TRACK: NETWORK / ML PAPERS -->
-  <section class="track" data-track="network">
+  <!-- REQUIRED PAPER 3: BD2 ACC -->
+  <section class="track track-required" data-track="bd2">
     <div class="track-header">
-      <div class="track-icon">🕸️</div>
+      <div class="track-icon">💜</div>
       <div>
-        <h2 class="track-title">Network & ML Papers</h2>
-        <p class="track-desc">SIR Epidemic · Spatial PageRank · Temporal GNN · LR Custom Kernel</p>
+        <h2 class="track-title">BD2 ACC <span class="required-badge">Required</span></h2>
+        <p class="track-desc">Bipolar I, II & both · Cell-type & molecular changes · Anterior cingulate cortex</p>
       </div>
-      <div class="track-progress-ring" data-track-id="network"></div>
+      <div class="track-progress-ring" data-track-id="bd2"></div>
     </div>
-    <div class="board-row" id="track-network">
-    </div>
+    <div class="board-row" id="track-bd2"></div>
   </section>
 
-  <!-- TRACK: PACKAGE DEV (txomics) -->
+  <!-- REQUIRED PAPER 4: DG NEUROGENESIS -->
+  <section class="track track-required" data-track="dg">
+    <div class="track-header">
+      <div class="track-icon">🌱</div>
+      <div>
+        <h2 class="track-title">DG Neurogenesis <span class="required-badge">Required</span></h2>
+        <p class="track-desc">Adult neurogenesis in dentate gyrus · DCX+ cells · Sorrells vs Boldrini controversy</p>
+      </div>
+      <div class="track-progress-ring" data-track-id="dg"></div>
+    </div>
+    <div class="board-row" id="track-dg"></div>
+  </section>
+
+  <!-- PRIORITIZED OPTIONAL: EEF2 METHODS -->
+  <section class="track" data-track="eef2">
+    <div class="track-header">
+      <div class="track-icon">⚡</div>
+      <div>
+        <h2 class="track-title">EEF2 Methods Paper <span class="optional-badge">Prioritized Optional</span></h2>
+        <p class="track-desc">Cell-type-stratified efficiency correction · EEF2 not universal housekeeping gene · DAPI, Assortativity, CONCORD SAE</p>
+      </div>
+      <div class="track-progress-ring" data-track-id="eef2"></div>
+    </div>
+    <div class="board-row" id="track-eef2"></div>
+  </section>
+
+  <!-- SHARED TOOLKIT: txomics Package -->
   <section class="track" data-track="package">
     <div class="track-header">
       <div class="track-icon">📦</div>
       <div>
         <h2 class="track-title">txomics Package</h2>
-        <p class="track-desc">Public Python toolkit · pip installable · 8 analysis modules</p>
+        <p class="track-desc">Public Python toolkit · pip installable · shared foundation for all 4 papers</p>
       </div>
       <div class="track-progress-ring" data-track-id="package"></div>
     </div>
-    <div class="board-row" id="track-package">
-    </div>
+    <div class="board-row" id="track-package"></div>
   </section>
 
-  <!-- TRACK: CURSOR PLAN PHASES -->
+  <!-- SHARED PIPELINE: Cursor Plan -->
   <section class="track" data-track="cursor">
     <div class="track-header">
       <div class="track-icon">🤖</div>
       <div>
-        <h2 class="track-title">Cursor Plan Phases</h2>
-        <p class="track-desc">P0 → P8 implementation packets for ad_seqfish_analysis repo</p>
+        <h2 class="track-title">Cursor Plan (Pipeline)</h2>
+        <p class="track-desc">P0 → P8 AI-assisted implementation · Executes DLPFC/FIC analyses · ad_seqfish_analysis repo</p>
       </div>
       <div class="track-progress-ring" data-track-id="cursor"></div>
     </div>
-    <div class="board-row" id="track-cursor">
-    </div>
+    <div class="board-row" id="track-cursor"></div>
   </section>
 
-  <!-- TRACK: LEARNING PLAN -->
+  <!-- POST-GRAD OPTIONAL: Network & ML -->
+  <section class="track" data-track="network">
+    <div class="track-header">
+      <div class="track-icon">🕸️</div>
+      <div>
+        <h2 class="track-title">Network & ML <span class="postgrad-badge">Post-Grad</span></h2>
+        <p class="track-desc">SIR Epidemic · Spatial PageRank · Temporal GNN · Network Motifs</p>
+      </div>
+      <div class="track-progress-ring" data-track-id="network"></div>
+    </div>
+    <div class="board-row" id="track-network"></div>
+  </section>
+
+  <!-- LEARNING PLAN -->
   <section class="track" data-track="learning">
     <div class="track-header">
       <div class="track-icon">📚</div>
@@ -214,22 +251,20 @@
       </div>
       <div class="track-progress-ring" data-track-id="learning"></div>
     </div>
-    <div class="board-row" id="track-learning">
-    </div>
+    <div class="board-row" id="track-learning"></div>
   </section>
 
-  <!-- TRACK: CAREER -->
+  <!-- CAREER -->
   <section class="track" data-track="career">
     <div class="track-header">
       <div class="track-icon">🚀</div>
       <div>
         <h2 class="track-title">Career Path</h2>
-        <p class="track-desc">Altos Labs · Genentech · Illumina · Southern California · Scientist/ML</p>
+        <p class="track-desc">Altos Labs · Genentech · Illumina · Defense Nov 2026</p>
       </div>
       <div class="track-progress-ring" data-track-id="career"></div>
     </div>
-    <div class="board-row" id="track-career">
-    </div>
+    <div class="board-row" id="track-career"></div>
   </section>
 
   <!-- ADD PROJECT SECTION -->
