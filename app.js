@@ -115,6 +115,39 @@ function updateCountdown() {
 // ---- RENDER BOARD ----
 const TRACK_ORDER = ['flagship', 'methods', 'network', 'package', 'cursor', 'learning', 'career'];
 
+// ---- VIEW MODE ----
+// 'active' = default: tracks with in-progress milestones float to top, empty tracks collapsed
+// 'all'    = show every track in standard order
+let currentView = 'active';
+
+function setView(view) {
+  currentView = view;
+  // Update toggle button states
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+  renderAllTracks();
+}
+
+function getTrackPriority(trackId) {
+  // Returns sort weight for a track in 'active' view:
+  // 0 = has in-progress milestones (float to top)
+  // 1 = has at least one pending but none in-progress
+  // 2 = all done or empty
+  const milestones = QUEST_DATA[trackId] || [];
+  const hasInProgress = milestones.some(m => getMilestoneState(m.id).status === 'inprogress');
+  if (hasInProgress) return 0;
+  const hasAnyActive = milestones.some(m => getMilestoneState(m.id).status !== 'done');
+  if (hasAnyActive) return 1;
+  return 2;
+}
+
+function getActiveTrackOrder() {
+  // Sort tracks: in-progress first, then pending, then complete
+  // Within each group, preserve the original logical order
+  return [...TRACK_ORDER].sort((a, b) => getTrackPriority(a) - getTrackPriority(b));
+}
+
 function getAccentColor(category) {
   const map = {
     flagship: 'var(--c-flagship)',
@@ -222,11 +255,39 @@ function renderTrackProgress(trackId, milestones) {
 }
 
 function renderAllTracks() {
-  TRACK_ORDER.forEach(trackId => {
+  const orderedTracks = currentView === 'active' ? getActiveTrackOrder() : TRACK_ORDER;
+  const board = document.querySelector('.board-container');
+
+  orderedTracks.forEach(trackId => {
     const milestones = QUEST_DATA[trackId];
-    if (milestones) renderTrack(trackId, milestones);
+    if (!milestones) return;
+
+    const section = document.querySelector(`.track[data-track="${trackId}"]`);
+    if (!section) return;
+
+    if (currentView === 'active') {
+      const priority = getTrackPriority(trackId);
+      // Collapse completely-done tracks in active view — they clutter the board
+      if (priority === 2) {
+        section.classList.add('track-collapsed');
+      } else {
+        section.classList.remove('track-collapsed');
+      }
+      // Re-order DOM: move section to correct position
+      board.appendChild(section);
+    } else {
+      // All view: restore original order, nothing collapsed
+      section.classList.remove('track-collapsed');
+      board.appendChild(section);
+    }
+
+    renderTrack(trackId, milestones);
   });
-  // Render custom projects
+
+  // Always re-append add-project section last
+  const addSection = document.getElementById('addProjectSection');
+  if (addSection) board.appendChild(addSection);
+
   renderCustomProjects();
   updateGlobalStats();
   updateXPBar();

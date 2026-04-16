@@ -3087,3 +3087,49 @@ h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; text-wrap:
   border-radius: 99px;
   flex-shrink: 0;
 }
+
+/* ── VIEW TOGGLE (In Progress / All Projects) ── */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 3px;
+}
+.view-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.view-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.view-btn.active {
+  background: linear-gradient(135deg, #a78bfa, #06b6d4);
+  color: #fff;
+}
+
+/* ── COLLAPSED TRACK (done tracks in active view) ── */
+.track-collapsed {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.track-collapsed .board-row { display: none; }
+.track-collapsed .track-header {
+  cursor: default;
+  padding-bottom: 0;
+}
+.track-collapsed::after {
+  content: "✓ Complete";
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 20px 14px;
+  font-style: italic;
+}
