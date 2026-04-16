@@ -80,41 +80,52 @@ function getNextLevel(xp) {
   return LEVELS.find(l => l.xp_required > xp) || null;
 }
 
-function updateXPBar() {
-  const xpBarFill = document.getElementById('xpBarFill');
-  const levelBadge = document.getElementById('levelBadge');
-  const xpLabel = document.getElementById('xpLabel');
-  if (!xpBarFill || !levelBadge || !xpLabel) return;
-
-  const xp = calculateTotalXP();
-  const current = getCurrentLevel(xp);
-  const next = getNextLevel(xp);
-  const pct = next
-    ? Math.round(((xp - current.xp_required) / (next.xp_required - current.xp_required)) * 100)
-    : 100;
-
-  levelBadge.textContent = `${current.emoji} Lv.${current.level} ${current.name}`;
-  xpBarFill.style.width = pct + '%';
-  xpLabel.textContent = next ? `${xp} / ${next.xp_required} XP` : `${xp} XP — MAX`;
+function updateTrackProgressBars() {
+  TRACK_ORDER.forEach(trackId => {
+    const milestones = QUEST_DATA[trackId] || [];
+    if (!milestones.length) return;
+    const bar = document.getElementById('track-prog-' + trackId);
+    if (!bar) return;
+    const done = milestones.filter(m => getMilestoneState(m.id).status === 'done').length;
+    const pct = Math.round((done / milestones.length) * 100);
+    bar.style.width = pct + '%';
+    // Update color based on track
+    const colors = {
+      dlpfc: 'var(--c-dlpfc)', fic: 'var(--c-fic)', bd2: 'var(--c-bd2)',
+      dg: 'var(--c-dg)', eef2: 'var(--c-eef2)', package: 'var(--c-package)',
+      cursor: 'var(--c-dg)', network: '#9ca3af', learning: 'var(--c-learning)',
+      career: 'var(--c-career)'
+    };
+    bar.style.background = colors[trackId] || 'var(--c-flagship)';
+  });
 }
 
-// ---- COUNTDOWN ----
+function updateXPBar() {
+  // XP bar removed from header — just track XP internally
+  const xp = calculateTotalXP();
+  const current = getCurrentLevel(xp);
+  // Store for other uses (future: could surface somewhere)
+  window._currentXP = xp;
+  window._currentLevel = current;
+}
+
+// ---- COUNTDOWN (kept for data, no longer rendered in header) ----
 function updateCountdown() {
-  const el = document.getElementById('countdownNum');
-  if (!el) return;
   const target = new Date('2026-11-01T00:00:00');
   const now = new Date();
   const diff = target - now;
-  if (diff <= 0) { el.textContent = '🎓 Done!'; return; }
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const months = Math.floor(days / 30);
-  const remDays = days % 30;
-  el.textContent = months > 0 ? `${months}mo ${remDays}d` : `${days}d`;
+  window._defenseCountdown = days; // available for other uses
 }
 
 // ---- RENDER BOARD ----
 // Track order: 4 required papers first, then optional/tools
 const TRACK_ORDER = ['dlpfc', 'fic', 'bd2', 'dg', 'eef2', 'package', 'cursor', 'network', 'learning', 'career'];
+
+// Active view shows ONLY these tracks (user's current focus).
+// dlpfc = DLPFC data acquisition, package = txomics, cursor = txomics implementation on DLPFC
+// These run in parallel: finish a txomics module → implement in dlpfc via cursor track.
+const ACTIVE_FOCUS_TRACKS = ['dlpfc', 'package', 'cursor'];
 
 // ---- VIEW MODE ----
 // 'active' = default: tracks with in-progress milestones float to top, empty tracks collapsed
@@ -123,8 +134,8 @@ let currentView = 'active';
 
 function setView(view) {
   currentView = view;
-  // Update toggle button states
-  document.querySelectorAll('.view-btn').forEach(btn => {
+  // Sync header-tab buttons
+  document.querySelectorAll('.view-btn, .header-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.view === view);
   });
   renderAllTracks();
@@ -264,35 +275,36 @@ function renderTrackProgress(trackId, milestones) {
 }
 
 function renderAllTracks() {
-  const orderedTracks = currentView === 'active' ? getActiveTrackOrder() : TRACK_ORDER;
   const board = document.querySelector('.board-container');
   if (_depArrowSVG) { _depArrowSVG.remove(); _depArrowSVG = null; }
 
-  orderedTracks.forEach(trackId => {
-    const milestones = QUEST_DATA[trackId];
-    if (!milestones) return;
-
-    const section = document.querySelector(`.track[data-track="${trackId}"]`);
-    if (!section) return;
-
-    if (currentView === 'active') {
-      const priority = getTrackPriority(trackId);
-      // Collapse completely-done tracks in active view — they clutter the board
-      if (priority === 2) {
-        section.classList.add('track-collapsed');
-      } else {
+  if (currentView === 'active') {
+    // Active view: show ONLY the 3 focus tracks
+    TRACK_ORDER.forEach(trackId => {
+      const section = document.querySelector(`.track[data-track="${trackId}"]`);
+      if (!section) return;
+      if (ACTIVE_FOCUS_TRACKS.includes(trackId)) {
         section.classList.remove('track-collapsed');
+        board.appendChild(section);
+        renderTrack(trackId, QUEST_DATA[trackId] || []);
+      } else {
+        section.classList.add('track-collapsed');
       }
-      // Re-order DOM: move section to correct position
-      board.appendChild(section);
-    } else {
-      // All view: restore original order, nothing collapsed
+    });
+  } else {
+    // All view: show everything in standard order
+    TRACK_ORDER.forEach(trackId => {
+      const milestones = QUEST_DATA[trackId];
+      if (!milestones) return;
+      const section = document.querySelector(`.track[data-track="${trackId}"]`);
+      if (!section) return;
       section.classList.remove('track-collapsed');
       board.appendChild(section);
-    }
-
-    renderTrack(trackId, milestones);
-  });
+      renderTrack(trackId, milestones);
+    });
+    // Dependency arrows in all view (subtle, optional)
+    scheduleDepArrows();
+  }
 
   // Always re-append add-project section last
   const addSection = document.getElementById('addProjectSection');
@@ -301,7 +313,10 @@ function renderAllTracks() {
   renderCustomProjects();
   updateGlobalStats();
   updateXPBar();
-  scheduleDepArrows();
+  updateTrackProgressBars();
+
+  // Draw intra-track dependency arrows after DOM settles
+  setTimeout(drawIntraTrackArrows, 80);
 }
 
 function updateGlobalStats() {
@@ -538,6 +553,12 @@ function openModal(milestoneId) {
   const overlay = document.getElementById('modalOverlay');
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Populate due date if set
+  const dueDateEl = document.getElementById('modalDueDate');
+  if (dueDateEl) dueDateEl.value = ms.dueDate || '';
+  const maxTimeEl = document.getElementById('modalMaxTime');
+  if (maxTimeEl) maxTimeEl.value = ms.maxTime != null ? ms.maxTime : '';
+
   setTimeout(() => document.getElementById('modalNotes').focus(), 200);
 }
 
@@ -612,7 +633,7 @@ function triggerConfetti() {
 function initTheme() {
   const toggle = document.querySelector('[data-theme-toggle]');
   const root = document.documentElement;
-  let theme = localStorage.getItem('theme') || 'dark';
+  let theme = localStorage.getItem('theme') || 'light';
   root.setAttribute('data-theme', theme);
   updateToggleIcon(toggle, theme);
   toggle?.addEventListener('click', () => {
@@ -823,11 +844,171 @@ function scheduleDepArrows() {
   scheduleDepArrows._t = setTimeout(drawDependencyArrows, 120);
 }
 
+// ---- INTRA-TRACK DEPENDENCY ARROWS ----
+// Draws SVG arrows between milestone cards within a track to show the pathway sequence.
+// Uses depends_on[] on each milestone to determine edges. Also draws sequential arrows
+// for milestones without explicit depends_on (purely ordered sequence).
+let _intraArrowSVG = null;
+
+function drawIntraTrackArrows() {
+  // Remove old overlay
+  if (_intraArrowSVG) { _intraArrowSVG.remove(); _intraArrowSVG = null; }
+
+  const board = document.querySelector('.board-container');
+  if (!board) return;
+
+  const boardRect = board.getBoundingClientRect();
+  const boardH = board.scrollHeight;
+  const boardW = board.scrollWidth;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'intra-arrows-overlay');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.style.cssText = `position:absolute;top:0;left:0;width:${boardW}px;height:${boardH}px;pointer-events:none;z-index:6;overflow:visible;`;
+
+  // Arrowhead defs
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const markerColors = new Set();
+
+  // Collect all cards in visible tracks
+  const visibleTracks = currentView === 'active' ? ACTIVE_FOCUS_TRACKS : TRACK_ORDER;
+  const edges = []; // { fromEl, toEl, color }
+
+  visibleTracks.forEach(trackId => {
+    const milestones = QUEST_DATA[trackId] || [];
+    if (!milestones.length) return;
+    const color = resolveCSSVar(getAccentColor(trackId));
+    markerColors.add(color);
+
+    milestones.forEach((m, i) => {
+      const fromEl = document.querySelector(`[data-id="${m.id}"]`);
+      if (!fromEl) return;
+
+      if (m.depends_on && m.depends_on.length) {
+        // Explicit dependencies
+        m.depends_on.forEach(depId => {
+          // Only intra-track (same track deps)
+          if (milestones.some(x => x.id === depId)) {
+            const toEl = document.querySelector(`[data-id="${depId}"]`);
+            if (toEl) edges.push({ fromEl: toEl, toEl: fromEl, color });
+          }
+        });
+      } else if (i > 0) {
+        // No explicit dep: draw sequential arrow from previous milestone
+        const prevEl = document.querySelector(`[data-id="${milestones[i-1].id}"]`);
+        if (prevEl) edges.push({ fromEl: prevEl, toEl: fromEl, color });
+      }
+    });
+  });
+
+  if (!edges.length) return;
+
+  // Create arrowhead markers
+  markerColors.forEach(color => {
+    const safeId = 'ia-' + color.replace(/[^a-zA-Z0-9]/g, '');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', safeId);
+    marker.setAttribute('markerWidth', '7'); marker.setAttribute('markerHeight', '7');
+    marker.setAttribute('refX', '6'); marker.setAttribute('refY', '3');
+    marker.setAttribute('orient', 'auto');
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrow.setAttribute('d', 'M0,0 L0,6 L7,3 z');
+    arrow.setAttribute('fill', color); arrow.setAttribute('opacity', '0.7');
+    marker.appendChild(arrow); defs.appendChild(marker);
+  });
+  svg.appendChild(defs);
+
+  edges.forEach(({ fromEl, toEl, color }) => {
+    const fr = fromEl.getBoundingClientRect();
+    const tr = toEl.getBoundingClientRect();
+    const fx = fr.left - boardRect.left + fr.width / 2;
+    const fy = fr.top  - boardRect.top  + fr.height / 2;
+    const tx = tr.left - boardRect.left + tr.width / 2;
+    const ty = tr.top  - boardRect.top  + tr.height / 2;
+
+    const safeId = 'ia-' + color.replace(/[^a-zA-Z0-9]/g, '');
+
+    // Are cards on same row (horizontal) or different rows (vertical/diagonal)?
+    const sameRow = Math.abs(fy - ty) < 40;
+
+    let d;
+    if (sameRow) {
+      // Same row: short horizontal arrow from right edge to left edge
+      const x1 = fr.right - boardRect.left + 2;
+      const x2 = tr.left  - boardRect.left - 2;
+      d = `M ${x1} ${fy} L ${x2} ${ty}`;
+    } else {
+      // Different rows: bezier curve from bottom-center to top-center
+      const x1 = fx, y1 = fr.bottom - boardRect.top + 2;
+      const x2 = tx, y2 = tr.top    - boardRect.top - 2;
+      const cy1 = y1 + (y2 - y1) * 0.45;
+      const cy2 = y2 - (y2 - y1) * 0.45;
+      d = `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '1.8');
+    path.setAttribute('stroke-dasharray', sameRow ? '' : '5 3');
+    path.setAttribute('opacity', '0.5');
+    path.setAttribute('marker-end', `url(#${safeId})`);
+    svg.appendChild(path);
+  });
+
+  if (getComputedStyle(board).position === 'static') board.style.position = 'relative';
+  board.appendChild(svg);
+  _intraArrowSVG = svg;
+}
+
+// ---- AUTO-SEQUENCE: get next task by pipeline order ----
+// Returns the first milestone/step that should be worked on next,
+// based on sequence (not manual selection). Urgency flag overrides.
+function getAutoNextItems(limit = 5) {
+  const results = [];
+  // First: any item with urgency flag (due date in past or today, or manually flagged)
+  const today = new Date().toISOString().split('T')[0];
+
+  TRACK_ORDER.forEach(trackId => {
+    const milestones = QUEST_DATA[trackId] || [];
+    milestones.forEach(m => {
+      const ms = getMilestoneState(m.id);
+      if (ms.status === 'done') return;
+      const dueDate = ms.dueDate || null;
+      const urgent = dueDate && dueDate <= today;
+      if (urgent) results.push({ milestone: m, trackId, urgent: true, dueDate });
+    });
+  });
+
+  // Then: first non-done milestone in each ACTIVE_FOCUS_TRACKS (by sequence)
+  ACTIVE_FOCUS_TRACKS.forEach(trackId => {
+    const milestones = QUEST_DATA[trackId] || [];
+    for (const m of milestones) {
+      const ms = getMilestoneState(m.id);
+      if (ms.status !== 'done' && !results.find(r => r.milestone.id === m.id)) {
+        results.push({ milestone: m, trackId, urgent: false });
+        break; // Only the next one per track
+      }
+    }
+  });
+
+  return results.slice(0, limit);
+}
+
+// ---- DUE DATE SUPPORT ----
+// Due date is stored in milestone state: state[milestoneId].dueDate = 'YYYY-MM-DD'
+// Accessed via getMilestoneState / setMilestoneState (already supports arbitrary fields)
+function setMilestoneDueDate(milestoneId, dateStr) {
+  setMilestoneState(milestoneId, { dueDate: dateStr || null });
+}
+
 // ---- INIT ----
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
   initTheme();
   initModalEvents();
+  initDueDateModal();
   renderAllTracks();
   insertTrackArrows();
   updateCountdown();
@@ -835,8 +1016,39 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateCountdown, 60000);
   initAddProjectModal();
   scheduleDepArrows();
-  window.addEventListener('resize', scheduleDepArrows);
+  window.addEventListener('resize', () => {
+    scheduleDepArrows();
+    setTimeout(drawIntraTrackArrows, 100);
+  });
 });
+
+// ---- DUE DATE EDIT MODAL ----
+// Lightweight: triggered from quick-edit modal's due-date field
+function initDueDateModal() {
+  // Due date field already exists in modal HTML (#modalDueDate)
+  // On modal save, persist due date alongside status
+  // Patch saveModal to also save due date
+  const origSaveModal = window.saveModal || saveModal;
+  window.saveModal = function() {
+    if (!currentMilestoneId) return;
+    const activeBtnEl = document.querySelector('#statusButtons .status-btn.active-done') ||
+                        document.querySelector('#statusButtons .status-btn.active-inprogress') ||
+                        document.querySelector('#statusButtons .status-btn.active-pending');
+    const newStatus = activeBtnEl?.getAttribute('data-status') || 'pending';
+    const oldStatus = getMilestoneState(currentMilestoneId).status;
+    const notes = document.getElementById('modalNotes').value;
+    const dueDateEl = document.getElementById('modalDueDate');
+    const dueDate = dueDateEl ? (dueDateEl.value || null) : null;
+    const maxTimeEl = document.getElementById('modalMaxTime');
+    const maxTime = maxTimeEl ? (maxTimeEl.value ? parseInt(maxTimeEl.value) : null) : null;
+
+    setMilestoneState(currentMilestoneId, { status: newStatus, notes, dueDate, maxTime });
+    renderAllTracks();
+    updateXPBar();
+    if (newStatus === 'done' && oldStatus !== 'done') triggerConfetti();
+    closeModal();
+  };
+}
 
 // ---- FOCUS MODE LAUNCHER (used by header button) ----
 function openFocusMode() {

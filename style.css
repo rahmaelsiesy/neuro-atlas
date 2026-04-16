@@ -5,13 +5,13 @@
 
 /* ---------- DESIGN TOKENS ---------- */
 :root {
-  /* Type scale */
-  --text-xs:   clamp(0.75rem,  0.7rem + 0.25vw, 0.875rem);
-  --text-sm:   clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
-  --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
-  --text-lg:   clamp(1.125rem, 1rem + 0.75vw,   1.5rem);
-  --text-xl:   clamp(1.5rem,   1.2rem + 1.25vw, 2.25rem);
-  --text-2xl:  clamp(2rem,     1.2rem + 2.5vw,  3.5rem);
+  /* Type scale — bumped up across the board */
+  --text-xs:   clamp(0.82rem,  0.78rem + 0.2vw,  0.95rem);
+  --text-sm:   clamp(0.95rem,  0.88rem + 0.35vw, 1.1rem);
+  --text-base: clamp(1.05rem,  1rem + 0.25vw,    1.2rem);
+  --text-lg:   clamp(1.2rem,   1.1rem + 0.5vw,   1.5rem);
+  --text-xl:   clamp(1.5rem,   1.3rem + 1vw,     2.25rem);
+  --text-2xl:  clamp(2rem,     1.4rem + 2.5vw,   3.5rem);
 
   /* Spacing */
   --sp-1: 0.25rem; --sp-2: 0.5rem;  --sp-3: 0.75rem; --sp-4: 1rem;
@@ -48,52 +48,53 @@
   --s-inprogress:  #f59e0b;
   --s-pending:     transparent;
 
-  /* Fonts */
-  --font-display: 'Fredoka', 'Nunito', system-ui, sans-serif;
-  --font-body:    'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  /* Fonts — Helvetica */
+  --font-display: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  --font-body:    'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
 
   /* Content widths */
   --w-page: 1320px;
 }
 
-/* ---------- NEON NOIR (dark default) ---------- */
-/* Charcoal bg + thin glowing borders + pastel accents on dark */
-:root, [data-theme="dark"] {
-  --bg:         #16151d;  /* near-black charcoal */
-  --bg-2:       #1c1b26;  /* slightly lighter for header/cards */
-  --surface:    #211f2e;  /* glass card surface */
-  --surface-2:  #2a2840;  /* hover/selected surface */
-  --border:     rgba(255,255,255,0.08);  /* barely-there thin border */
-  --border-glow: rgba(167,139,250,0.25); /* accent glow border */
-  --text:       #f0eeff;  /* warm near-white */
-  --text-muted: #9490c0;  /* soft muted purple-grey */
-  --text-faint: #3e3c5a;  /* very dim */
-  --shadow-sm:  0 1px 4px rgba(0,0,0,0.4);
-  --shadow-md:  0 4px 20px rgba(0,0,0,0.5);
-  --shadow-lg:  0 12px 48px rgba(0,0,0,0.6);
-  --hero-grad:  linear-gradient(135deg, #1a1830 0%, #251d42 50%, #1a2535 100%);
-  --glass:      rgba(255,255,255,0.03);
-  --glass-border: rgba(255,255,255,0.07);
+/* ---------- LIGHT THEME (default) ---------- */
+:root, [data-theme="light"] {
+  --bg:         #f5f5f7;  /* Apple light grey */
+  --bg-2:       #ffffff;
+  --surface:    #ffffff;
+  --surface-2:  #f0f0f2;
+  --border:     rgba(0,0,0,0.10);
+  --border-glow: rgba(120,80,220,0.25);
+  --text:       #1d1d1f;  /* near-black — Apple body text */
+  --text-muted: #555558;  /* mid grey */
+  --text-faint: #a1a1a6;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+  --shadow-lg:  0 12px 40px rgba(0,0,0,0.13);
+  --hero-grad:  linear-gradient(135deg, #f5f5f7 0%, #ffffff 100%);
+  --glass:      rgba(255,255,255,0.9);
+  --glass-border: rgba(0,0,0,0.08);
 }
 
-/* ---------- LIGHT MODE (Pastel Studio) ---------- */
-[data-theme="light"] {
-  --bg:          #faf9f7;  /* warm off-white */
-  --bg-2:        #ffffff;
-  --surface:     #ffffff;
-  --surface-2:   #f5f3f0;
-  --border:      rgba(0,0,0,0.08);
+/* ---------- DARK MODE (explicit opt-in) ---------- */
+[data-theme="dark"] {
+  --bg:         #1d1d1f;
+  --bg-2:       #2d2d2f;
+  --surface:    #2d2d2f;
+  --surface-2:  #3a3a3c;
+  --border:     rgba(255,255,255,0.10);
   --border-glow: rgba(167,139,250,0.3);
-  --text:        #1c1a2e;
-  --text-muted:  #6b6690;
-  --text-faint:  #c4c2d8;
-  --shadow-sm:   0 1px 3px rgba(60,50,120,0.07);
-  --shadow-md:   0 4px 16px rgba(60,50,120,0.10);
-  --shadow-lg:   0 12px 40px rgba(60,50,120,0.14);
-  --hero-grad:   linear-gradient(135deg, #e8e4f7 0%, #f0e8ff 50%, #e4f0f8 100%);
-  --glass:       rgba(255,255,255,0.7);
-  --glass-border: rgba(0,0,0,0.06);
+  --text:       #f5f5f7;
+  --text-muted: #aeaeb2;
+  --text-faint: #636366;
+  --shadow-sm:  0 1px 4px rgba(0,0,0,0.5);
+  --shadow-md:  0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg:  0 12px 48px rgba(0,0,0,0.6);
+  --hero-grad:  linear-gradient(135deg, #1d1d1f 0%, #2d2d2f 100%);
+  --glass:      rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.08);
 }
+
+
 
 /* ---------- BASE RESET ---------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -133,19 +134,20 @@ h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; text-wrap:
   position: sticky;
   top: 0;
   z-index: 100;
-  background: var(--bg-2);
+  background: rgba(var(--bg-rgb, 29,29,32), 0.85);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
 }
 .header-inner {
   max-width: var(--w-page);
   margin: 0 auto;
-  padding: var(--sp-3) var(--sp-6);
+  padding: var(--sp-2) var(--sp-6);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--sp-4);
+  min-height: 52px;
 }
 .logo-area {
   display: flex;
