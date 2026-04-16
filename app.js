@@ -37,6 +37,32 @@ let timerMilestoneId = null;
 let timerIsWarmup = false;
 let pendingNavHash = null;
 
+// ---- Theme system ----
+const THEMES = [
+  { id: 'midnight', label: 'Midnight', top: '#1c1c22', bot: '#141418' },
+  { id: 'ocean',    label: 'Ocean',    top: '#152230', bot: '#0f1a24' },
+  { id: 'forest',   label: 'Forest',   top: '#17221a', bot: '#111a14' },
+  { id: 'dusk',     label: 'Dusk',     top: '#201c28', bot: '#181420' },
+  { id: 'sand',     label: 'Sand',     top: '#ede6da', bot: '#f5f0e8' },
+  { id: 'fog',      label: 'Fog',      top: '#e0e0e6', bot: '#eaeaee' },
+];
+
+function applyTheme(themeId) {
+  document.documentElement.setAttribute('data-theme', themeId);
+  localStorage.setItem('soma_theme', themeId);
+  // Update PWA theme-color meta tag
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const t = THEMES.find(t => t.id === themeId);
+  if (meta && t) meta.setAttribute('content', t.bot);
+}
+
+function getTheme() {
+  return localStorage.getItem('soma_theme') || 'midnight';
+}
+
+// Apply saved theme immediately
+applyTheme(getTheme());
+
 // ---- State helpers ----
 function defaultState() {
   return {
@@ -1795,9 +1821,26 @@ function renderSettings() {
   const el = document.getElementById('view-settings');
   const s = state.settings;
 
+  const currentTheme = getTheme();
+
   let html = `<div class="section-title">Settings</div>
 
     <div class="settings-group">
+      <h4>Theme</h4>
+      <div class="theme-picker">
+        ${THEMES.map(t => `
+          <div class="theme-swatch ${t.id === currentTheme ? 'active' : ''}" onclick="applyTheme('${t.id}'); renderSettings();" title="${t.label}">
+            <div class="swatch-inner">
+              <div class="swatch-top" style="background:${t.top}"></div>
+              <div class="swatch-bot" style="background:${t.bot}"></div>
+            </div>
+            <span class="swatch-label">${t.label}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="settings-group" style="margin-top:var(--sp-6);">
       <h4>Focus blocks</h4>
       <div class="setting-row">
         <span class="setting-label">Full block duration (min)</span>
