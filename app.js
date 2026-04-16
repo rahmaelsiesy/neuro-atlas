@@ -314,9 +314,10 @@ function renderAllTracks() {
   updateGlobalStats();
   updateXPBar();
   updateTrackProgressBars();
+  updateTrackToTrackArrows();
 
-  // Draw intra-track dependency arrows after DOM settles
-  setTimeout(drawIntraTrackArrows, 80);
+  // Draw intra-track dependency arrows after DOM settles (needs layout complete)
+  setTimeout(drawIntraTrackArrows, 120);
 }
 
 function updateGlobalStats() {
@@ -665,10 +666,20 @@ function initModalEvents() {
 }
 
 // ---- INSERT TRACK-TO-TRACK ARROWS ----
+// Only shown in 'all' view; removed/hidden in active view (only 3 tracks visible)
 function insertTrackArrows() {
+  // Handled dynamically in renderAllTracks — nothing to do at init time
+  // (old static insertion removed to avoid orphaned arrows in active view)
+}
+
+function updateTrackToTrackArrows() {
   const board = document.querySelector('.board-container');
   if (!board) return;
-  const tracks = board.querySelectorAll('section.track:not([data-custom])');
+  // Remove all existing track-to-track arrows first
+  board.querySelectorAll('.track-to-track-arrow').forEach(el => el.remove());
+  // Only draw in 'all' view
+  if (currentView !== 'all') return;
+  const tracks = Array.from(board.querySelectorAll('section.track:not(.track-collapsed):not([data-custom])'));
   tracks.forEach((track, i) => {
     if (i < tracks.length - 1) {
       const arrow = document.createElement('div');
@@ -727,15 +738,16 @@ function findTrackForMilestone(milestoneId) {
   return null;
 }
 
-function getCardCenter(el, boardRect) {
-  const r = el.getBoundingClientRect();
+function getCardCenter(el, boardEl) {
+  // Use the same board-relative helper as intra-track arrows
+  const p = cardPosRelativeToBoard(el, boardEl);
   return {
-    x: r.left - boardRect.left + r.width / 2,
-    y: r.top  - boardRect.top  + r.height / 2,
-    bottom: r.bottom - boardRect.top,
-    top:    r.top    - boardRect.top,
-    left:   r.left   - boardRect.left,
-    right:  r.right  - boardRect.left,
+    x:      p.cx,
+    y:      p.cy,
+    bottom: p.bottom,
+    top:    p.top,
+    left:   p.left,
+    right:  p.right,
   };
 }
 
@@ -755,9 +767,8 @@ function drawDependencyArrows() {
   if (!edges.length) return;
 
   const cardMap = buildMilestoneCardMap();
-  const boardRect = board.getBoundingClientRect();
   const boardH = board.scrollHeight;
-  const boardW = board.scrollWidth;
+  const boardW = board.offsetWidth;
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'dep-arrows-overlay');
@@ -801,8 +812,8 @@ function drawDependencyArrows() {
     const toInfo   = cardMap[edge.to];
     if (!fromInfo || !toInfo) return;
 
-    const from = getCardCenter(fromInfo.el, boardRect);
-    const to   = getCardCenter(toInfo.el,   boardRect);
+    const from = getCardCenter(fromInfo.el, board);
+    const to   = getCardCenter(toInfo.el,   board);
     const color = fromInfo.color;
     const safeId = 'arr-' + color.replace(/[^a-zA-Z0-9]/g, '');
 
@@ -845,32 +856,50 @@ function scheduleDepArrows() {
 }
 
 // ---- INTRA-TRACK DEPENDENCY ARROWS ----
-// Draws SVG arrows between milestone cards within a track to show the pathway sequence.
-// Uses depends_on[] on each milestone to determine edges. Also draws sequential arrows
-// for milestones without explicit depends_on (purely ordered sequence).
+// Draws SVG arrows between milestone cards to show the pathway/sequence.
+// Same-row (adjacent) cards already have inline .connector arrows — we only draw
+// cross-row arrows here (row-wrap transitions), using bezier curves.
+// Positions are computed relative to the board-container element (not viewport).
 let _intraArrowSVG = null;
 
+function cardPosRelativeToBoard(el, boardEl) {
+  // Returns element rect relative to boardEl's top-left, accounting for scroll.
+  const er = el.getBoundingClientRect();
+  const br = boardEl.getBoundingClientRect();
+  // scrollLeft/Top of the board itself (usually 0 since board doesn't scroll)
+  return {
+    left:   er.left   - br.left,
+    top:    er.top    - br.top  + boardEl.scrollTop,
+    right:  er.right  - br.left,
+    bottom: er.bottom - br.top  + boardEl.scrollTop,
+    width:  er.width,
+    height: er.height,
+    cx:     er.left   - br.left + er.width  / 2,
+    cy:     er.top    - br.top  + boardEl.scrollTop + er.height / 2,
+  };
+}
+
 function drawIntraTrackArrows() {
-  // Remove old overlay
   if (_intraArrowSVG) { _intraArrowSVG.remove(); _intraArrowSVG = null; }
 
   const board = document.querySelector('.board-container');
   if (!board) return;
 
-  const boardRect = board.getBoundingClientRect();
+  // Ensure board is positioned so the absolute SVG overlay aligns
+  if (getComputedStyle(board).position === 'static') board.style.position = 'relative';
+
   const boardH = board.scrollHeight;
-  const boardW = board.scrollWidth;
+  const boardW = board.offsetWidth;
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'intra-arrows-overlay');
   svg.setAttribute('aria-hidden', 'true');
+  // Size to full board scroll height so arrows below fold are drawn correctly
   svg.style.cssText = `position:absolute;top:0;left:0;width:${boardW}px;height:${boardH}px;pointer-events:none;z-index:6;overflow:visible;`;
 
-  // Arrowhead defs
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   const markerColors = new Set();
 
-  // Collect all cards in visible tracks
   const visibleTracks = currentView === 'active' ? ACTIVE_FOCUS_TRACKS : TRACK_ORDER;
   const edges = []; // { fromEl, toEl, color }
 
@@ -881,83 +910,91 @@ function drawIntraTrackArrows() {
     markerColors.add(color);
 
     milestones.forEach((m, i) => {
-      const fromEl = document.querySelector(`[data-id="${m.id}"]`);
-      if (!fromEl) return;
+      const toEl = document.querySelector(`[data-id="${m.id}"]`);
+      if (!toEl) return;
 
       if (m.depends_on && m.depends_on.length) {
-        // Explicit dependencies
+        // Explicit cross-row deps within same track
         m.depends_on.forEach(depId => {
-          // Only intra-track (same track deps)
           if (milestones.some(x => x.id === depId)) {
-            const toEl = document.querySelector(`[data-id="${depId}"]`);
-            if (toEl) edges.push({ fromEl: toEl, toEl: fromEl, color });
+            const fromEl = document.querySelector(`[data-id="${depId}"]`);
+            if (fromEl) edges.push({ fromEl, toEl, color });
           }
         });
       } else if (i > 0) {
-        // No explicit dep: draw sequential arrow from previous milestone
-        const prevEl = document.querySelector(`[data-id="${milestones[i-1].id}"]`);
-        if (prevEl) edges.push({ fromEl: prevEl, toEl: fromEl, color });
+        // Sequential: previous milestone in track
+        const fromEl = document.querySelector(`[data-id="${milestones[i-1].id}"]`);
+        if (fromEl) edges.push({ fromEl, toEl, color });
       }
     });
   });
 
-  if (!edges.length) return;
+  if (!edges.length) { board.appendChild(svg); _intraArrowSVG = svg; return; }
 
-  // Create arrowhead markers
+  // Build arrowhead markers
   markerColors.forEach(color => {
     const safeId = 'ia-' + color.replace(/[^a-zA-Z0-9]/g, '');
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
     marker.setAttribute('id', safeId);
-    marker.setAttribute('markerWidth', '7'); marker.setAttribute('markerHeight', '7');
-    marker.setAttribute('refX', '6'); marker.setAttribute('refY', '3');
+    marker.setAttribute('markerWidth', '8'); marker.setAttribute('markerHeight', '8');
+    marker.setAttribute('refX', '7'); marker.setAttribute('refY', '3');
     marker.setAttribute('orient', 'auto');
+    marker.setAttribute('markerUnits', 'strokeWidth');
     const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    arrow.setAttribute('d', 'M0,0 L0,6 L7,3 z');
-    arrow.setAttribute('fill', color); arrow.setAttribute('opacity', '0.7');
+    arrow.setAttribute('d', 'M0,0 L0,6 L8,3 z');
+    arrow.setAttribute('fill', color); arrow.setAttribute('opacity', '0.75');
     marker.appendChild(arrow); defs.appendChild(marker);
   });
   svg.appendChild(defs);
 
   edges.forEach(({ fromEl, toEl, color }) => {
-    const fr = fromEl.getBoundingClientRect();
-    const tr = toEl.getBoundingClientRect();
-    const fx = fr.left - boardRect.left + fr.width / 2;
-    const fy = fr.top  - boardRect.top  + fr.height / 2;
-    const tx = tr.left - boardRect.left + tr.width / 2;
-    const ty = tr.top  - boardRect.top  + tr.height / 2;
+    const fr = cardPosRelativeToBoard(fromEl, board);
+    const tr = cardPosRelativeToBoard(toEl,   board);
 
     const safeId = 'ia-' + color.replace(/[^a-zA-Z0-9]/g, '');
 
-    // Are cards on same row (horizontal) or different rows (vertical/diagonal)?
-    const sameRow = Math.abs(fy - ty) < 40;
+    // Determine if cards are on the same visual row:
+    // same row = their vertical centers are within one card-height of each other
+    // AND toEl is to the right of fromEl
+    const cardH = fr.height;
+    const sameRow = Math.abs(fr.cy - tr.cy) < cardH * 0.6 && tr.left > fr.left;
 
-    let d;
     if (sameRow) {
-      // Same row: short horizontal arrow from right edge to left edge
-      const x1 = fr.right - boardRect.left + 2;
-      const x2 = tr.left  - boardRect.left - 2;
-      d = `M ${x1} ${fy} L ${x2} ${ty}`;
-    } else {
-      // Different rows: bezier curve from bottom-center to top-center
-      const x1 = fx, y1 = fr.bottom - boardRect.top + 2;
-      const x2 = tx, y2 = tr.top    - boardRect.top - 2;
-      const cy1 = y1 + (y2 - y1) * 0.45;
-      const cy2 = y2 - (y2 - y1) * 0.45;
-      d = `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
+      // Same row: the inline .connector arrow already handles this visually.
+      // Skip to avoid double arrows.
+      return;
     }
+
+    // Cross-row: curved bezier from bottom-center of fromEl to top-center of toEl
+    const x1 = fr.cx;
+    const y1 = fr.bottom + 3;
+    const x2 = tr.cx;
+    const y2 = tr.top - 3;
+
+    // Vertical distance for control points
+    const dy = Math.abs(y2 - y1);
+    const cp1y = y1 + dy * 0.4;
+    const cp2y = y2 - dy * 0.4;
+
+    // Horizontal shift: if going to a different column, add horizontal offset
+    // to make the curve arc gracefully instead of going straight down
+    const dx = x2 - x1;
+    const cp1x = x1 + dx * 0.1;
+    const cp2x = x2 - dx * 0.1;
+
+    const d = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', d);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', color);
     path.setAttribute('stroke-width', '1.8');
-    path.setAttribute('stroke-dasharray', sameRow ? '' : '5 3');
-    path.setAttribute('opacity', '0.5');
+    path.setAttribute('stroke-dasharray', '6 3');
+    path.setAttribute('opacity', '0.55');
     path.setAttribute('marker-end', `url(#${safeId})`);
     svg.appendChild(path);
   });
 
-  if (getComputedStyle(board).position === 'static') board.style.position = 'relative';
   board.appendChild(svg);
   _intraArrowSVG = svg;
 }
