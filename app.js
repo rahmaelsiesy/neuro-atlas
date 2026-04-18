@@ -99,7 +99,7 @@ function defaultState() {
     milestones: { 'dem-review-1': { status: 'done', notes: '' } },
     _demReviewSeeded: true,
     focusLog: [],
-    weeklyPlan: { weekOf: null, blocks: {}, approved: false, focusProjects: [] },
+    weeklyPlan: { weekOf: null, blocks: {}, approved: false, focusProjects: [], perProjectBlocks: {} },
     ideas: [],
     points: 0,
     streak: { current: 0, lastDate: null },
@@ -191,7 +191,11 @@ function loadState() {
         ...d, ...s,
         settings: { ...d.settings, ...(s.settings || {}) },
         streak: { ...d.streak, ...(s.streak || {}) },
-        weeklyPlan: { ...d.weeklyPlan, ...(s.weeklyPlan || {}) },
+        weeklyPlan: {
+          ...d.weeklyPlan,
+          ...(s.weeklyPlan || {}),
+          perProjectBlocks: (s.weeklyPlan && s.weeklyPlan.perProjectBlocks) || {}
+        },
         customSteps: customSteps,
         trackOverrides: s.trackOverrides || {},
         urgency: s.urgency || {},
@@ -727,6 +731,128 @@ function getStepIcon(step) {
   return MILESTONE_ICONS[getStepIconKey(step)] || MILESTONE_ICONS.dot;
 }
 
+// Round 4: Weekly plan panel shown on Home. Lets the user allocate 90-min
+// blocks per active project for the current week using simple +/- steppers.
+// Totals show live; remainder is visible. Clicking 'Edit full week' navigates
+// to the Schedule page for the day-by-day view.
+function renderWeeklyPlanPanel() {
+  const activeIds = getActiveTrackIds();
+  if (activeIds.length === 0) return '';
+
+  const weeklyGoal = state.settings.weeklyGoal || 10;
+  const perProject = state.weeklyPlan.perProjectBlocks || {};
+  const weekStart = getWeekStart(todayStr());
+  const weekB = getWeekBlocks(weekStart);
+
+  // Completed blocks this week, broken down by track.
+  const doneByTrack = {};
+  for (const log of weekB) {
+    if (log.warmup) continue;
+    const track = getTrackForMilestone(log.milestoneId);
+    if (!track) continue;
+    doneByTrack[track] = (doneByTrack[track] || 0) + 1;
+  }
+
+  // Sum allocated blocks across projects.
+  let allocated = 0;
+  for (const t of activeIds) allocated += (perProject[t] || 0);
+
+  const remaining = Math.max(0, weeklyGoal - allocated);
+  const overLimit = allocated > weeklyGoal;
+
+  let html = `<section class="week-plan-panel" aria-label="Weekly plan">
+    <div class="week-plan-header">
+      <div class="week-plan-title-group">
+        <div class="week-plan-title">This week</div>
+        <div class="week-plan-sub">${allocated} / ${weeklyGoal} blocks allocated${remaining > 0 ? ` · ${remaining} left to assign` : (overLimit ? ` · ${allocated - weeklyGoal} over goal` : ' · goal reached')}</div>
+      </div>
+      <a class="week-plan-edit-link" onclick="navigate('#schedule')">Edit full week ›</a>
+    </div>
+    <div class="week-plan-rows">`;
+
+  for (const track of activeIds) {
+    const color = TRACK_COLORS[track] || 'var(--accent)';
+    const label = getTrackLabel(track);
+    const planned = perProject[track] || 0;
+    const done = doneByTrack[track] || 0;
+    const pct = planned > 0 ? Math.min(100, Math.round((done / planned) * 100)) : 0;
+    html += `<div class="week-plan-row" data-track="${track}">
+      <span class="week-plan-dot" style="background:${color}"></span>
+      <span class="week-plan-label">${escapeHtml(label)}</span>
+      <div class="week-plan-stepper" role="group" aria-label="${escapeHtml(label)} blocks per week">
+        <button class="week-plan-step-btn" aria-label="Decrease" onclick="adjustProjectBlocks('${track}', -1)">−</button>
+        <span class="week-plan-count"><span class="week-plan-done">${done}</span><span class="week-plan-sep"> / </span><span class="week-plan-planned">${planned}</span></span>
+        <button class="week-plan-step-btn" aria-label="Increase" onclick="adjustProjectBlocks('${track}', 1)">+</button>
+      </div>
+      <div class="week-plan-bar" aria-hidden="true"><div class="week-plan-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }
+
+  html += `</div>`;
+
+  // Quick-balance helper: split remaining evenly across active projects.
+  if (remaining > 0 && activeIds.length > 0) {
+    html += `<div class="week-plan-hint">
+      <button class="week-plan-autofill" onclick="autoFillWeeklyPlan()">Split remaining evenly</button>
+    </div>`;
+  } else if (overLimit) {
+    html += `<div class="week-plan-hint week-plan-hint-warn">You've allocated more than this week's goal of ${weeklyGoal} blocks. Adjust above, or raise the goal in Settings.</div>`;
+  }
+
+  html += `</section>`;
+  return html;
+}
+
+function adjustProjectBlocks(trackId, delta) {
+  if (!state.weeklyPlan.perProjectBlocks) state.weeklyPlan.perProjectBlocks = {};
+  const cur = state.weeklyPlan.perProjectBlocks[trackId] || 0;
+  const next = Math.max(0, Math.min(40, cur + delta));
+  state.weeklyPlan.perProjectBlocks[trackId] = next;
+
+  // Keep focusProjects in sync: any track with > 0 allocation is a focus project.
+  const fps = [];
+  for (const t of getActiveTrackIds()) {
+    if ((state.weeklyPlan.perProjectBlocks[t] || 0) > 0) fps.push(t);
+  }
+  state.weeklyPlan.focusProjects = fps;
+
+  saveState();
+  renderHome();
+}
+
+function autoFillWeeklyPlan() {
+  const activeIds = getActiveTrackIds();
+  if (activeIds.length === 0) return;
+  const weeklyGoal = state.settings.weeklyGoal || 10;
+  const per = state.weeklyPlan.perProjectBlocks || {};
+  let allocated = 0;
+  for (const t of activeIds) allocated += (per[t] || 0);
+  let remaining = Math.max(0, weeklyGoal - allocated);
+  if (remaining === 0) return;
+
+  // Distribute remaining round-robin across projects with the lowest current allocation.
+  // This feels fair without wiping existing choices.
+  const sorted = [...activeIds].sort((a, b) => (per[a] || 0) - (per[b] || 0));
+  let i = 0;
+  while (remaining > 0) {
+    const t = sorted[i % sorted.length];
+    per[t] = (per[t] || 0) + 1;
+    remaining--;
+    i++;
+  }
+  state.weeklyPlan.perProjectBlocks = per;
+
+  // Sync focusProjects.
+  const fps = [];
+  for (const t of activeIds) {
+    if ((per[t] || 0) > 0) fps.push(t);
+  }
+  state.weeklyPlan.focusProjects = fps;
+
+  saveState();
+  renderHome();
+}
+
 // Task 7 + Round 2 Task B: today's planned blocks as a milestone-level
 // checklist. Each row shows the milestone title as the primary label and
 // the next substep (first non-done step) as a secondary line with its own
@@ -957,10 +1083,7 @@ function renderHome() {
     html += `<div class="sunday-prompt">Ready to plan next week? It takes 5 minutes. <a href="#schedule" style="color:var(--text-primary);text-decoration:underline;cursor:pointer;">Plan now</a></div>`;
   }
 
-  const hasPlan = state.weeklyPlan.approved && state.weeklyPlan.focusProjects && state.weeklyPlan.focusProjects.length > 0;
-  if (!hasPlan && dayOfWeek() !== 0) {
-    html += `<div class="no-plan-msg">No weekly plan yet. <a onclick="navigate('#schedule')">Pick your focus for the week</a></div>`;
-  }
+  // Round 4: The weekly plan panel below replaces the old 'No weekly plan yet' nudge.
 
   if (allDoneToday) {
     html += `<div class="done-msg">You've done enough today. Rest is productive too.</div>`;
@@ -988,6 +1111,9 @@ function renderHome() {
   } else {
     html += `<div class="done-msg" style="background:rgba(255,255,255,0.03);border-color:var(--border);">No active tasks queued. Check your <a onclick="navigate('#projects')" style="color:var(--text-primary);text-decoration:underline;cursor:pointer;">projects</a>.</div>`;
   }
+
+  // Round 4: weekly plan panel with per-project block sliders.
+  html += renderWeeklyPlanPanel();
 
   // Task 7: planned blocks checklist (replaces today block-circles).
   html += renderPlannedBlocksChecklist();
@@ -2221,25 +2347,37 @@ function renderSchedulePlan() {
 }
 
 function generatePlanGrid(focusProjects, weeklyGoal) {
-  const blocksPerDay = Math.floor(weeklyGoal / 5);
-  const flexTotal = Math.max(0, Math.floor(weeklyGoal * 0.2));
-  const hardBlocks = weeklyGoal - flexTotal;
+  // Round 4: respect per-project block allocations when set.
+  const perProject = (state.weeklyPlan && state.weeklyPlan.perProjectBlocks) || {};
+  const hasPerProject = focusProjects.some(t => (perProject[t] || 0) > 0);
+  const effectiveGoal = hasPerProject
+    ? focusProjects.reduce((sum, t) => sum + (perProject[t] || 0), 0)
+    : weeklyGoal;
+  const blocksPerDay = Math.max(1, Math.ceil(effectiveGoal / 5));
+  const flexTotal = hasPerProject ? 0 : Math.max(0, Math.floor(weeklyGoal * 0.2));
+  const hardBlocks = effectiveGoal - flexTotal;
   const hardPerDay = Math.ceil(hardBlocks / 5);
   const flexPerDay = Math.ceil(flexTotal / 5);
 
-  // Feature 3: gather tasks sorted by urgency
+  // Feature 3: gather tasks sorted by urgency. Cap per-project contribution
+  // when perProjectBlocks is set so each project only fills its allocation.
   const taskQueue = [];
   for (const track of focusProjects) {
+    const cap = hasPerProject ? (perProject[track] || 0) : Infinity;
+    if (cap <= 0) continue;
+    let addedForTrack = 0;
     const ms = getCurrentMilestone(track);
     if (!ms) continue;
     const steps = getAllSteps(ms.id);
     for (const step of steps) {
+      if (addedForTrack >= cap) break;
       const ss = getStepState(step.id);
       if (ss.status === 'done') continue;
       const remaining = Math.max(0, (step.estimated_blocks || 1) - (ss.blocksCompleted || 0));
       const urgLevel = getUrgency(step.id) || getUrgency(ms.id);
-      for (let i = 0; i < remaining; i++) {
+      for (let i = 0; i < remaining && addedForTrack < cap; i++) {
         taskQueue.push({ track, milestoneId: ms.id, stepId: step.id, stepTitle: step.title, urgLevel: urgLevel || null });
+        addedForTrack++;
       }
     }
   }
