@@ -7,8 +7,30 @@
    ============================================================ */
 
 // ---- Constants ----
-const ACTIVE_TRACKS = ['dlpfc', 'package', 'bd2', 'dg'];
-const INACTIVE_TRACKS = ['fic', 'eef2', 'network', 'cursor', 'learning', 'career', 'concord_sae', 'assortativity', 'dementia_review'];
+// Defaults: tracks that start active unless the user has archived them via
+// state.trackOverrides[trackId].active. See isTrackActive / getActiveTrackIds.
+const ACTIVE_TRACKS_DEFAULT = ['dlpfc', 'package', 'bd2', 'dg'];
+const ARCHIVED_TRACKS_DEFAULT = ['fic', 'eef2', 'network', 'cursor', 'learning', 'career', 'concord_sae', 'assortativity', 'dementia_review'];
+
+function isTrackActive(trackId) {
+  const override = (state && state.trackOverrides) ? state.trackOverrides[trackId] : null;
+  if (override && typeof override.active === 'boolean') return override.active;
+  return ACTIVE_TRACKS_DEFAULT.includes(trackId);
+}
+function getAllTrackIds() {
+  // Stable ordering: defaults first (in their declared order), then any extra
+  // tracks present in QUEST_DATA that aren't listed above.
+  const ordered = [...ACTIVE_TRACKS_DEFAULT, ...ARCHIVED_TRACKS_DEFAULT];
+  const seen = new Set(ordered);
+  if (typeof QUEST_DATA === 'object' && QUEST_DATA) {
+    for (const k of Object.keys(QUEST_DATA)) {
+      if (!seen.has(k)) { ordered.push(k); seen.add(k); }
+    }
+  }
+  return ordered;
+}
+function getActiveTrackIds() { return getAllTrackIds().filter(isTrackActive); }
+function getArchivedTrackIds() { return getAllTrackIds().filter(t => !isTrackActive(t)); }
 const TRACK_COLORS = {
   dlpfc: '#c49a6c', package: '#7db88a', bd2: '#b07da8', dg: '#6ba3b5',
   fic: '#c49a6c', eef2: '#9a9a6c', network: '#9ca3af', cursor: '#6ba3b5',
@@ -412,7 +434,8 @@ function getWeekBlocks(weekStart) {
 
 function getNextQueuedTask() {
   const focusProjects = state.weeklyPlan.focusProjects || [];
-  const tracks = focusProjects.length > 0 ? focusProjects.filter(t => ACTIVE_TRACKS.includes(t)) : ACTIVE_TRACKS;
+  const activeIds = getActiveTrackIds();
+  const tracks = focusProjects.length > 0 ? focusProjects.filter(t => activeIds.includes(t)) : activeIds;
   for (const track of tracks) {
     const ms = getCurrentMilestone(track);
     if (!ms) continue;
@@ -709,17 +732,15 @@ function getStepIcon(step) {
 // the next substep (first non-done step) as a secondary line with its own
 // Start Focus shortcut.
 function renderPlannedBlocksChecklist() {
-  const todayB = getTodayBlocks().filter(l => !l.warmup);
   const maxToday = state.settings.blocksPerDay.max;
-  const fullToday = todayB.length;
 
   // One row per active milestone (one per focus-track). Cap at maxToday.
   const planned = [];
   const seenMs = new Set();
   const focusProjects = state.weeklyPlan.focusProjects || [];
   const tracks = focusProjects.length > 0
-    ? focusProjects.filter(t => ACTIVE_TRACKS.includes(t))
-    : ACTIVE_TRACKS;
+    ? focusProjects.filter(t => isTrackActive(t))
+    : getActiveTrackIds();
   for (const track of tracks) {
     const ms = getCurrentMilestone(track);
     if (!ms) continue;
@@ -731,10 +752,21 @@ function renderPlannedBlocksChecklist() {
     if (planned.length >= maxToday) break;
   }
 
+  // Round 3 Task 2: header counts block-dots across planned rows, not row completions.
+  let blocksDoneSum = 0, blocksTotalSum = 0;
+  for (const p of planned) {
+    if (!p.step) continue;
+    const est = p.step.estimated_blocks || 1;
+    const ss = p.ss || getStepState(p.step.id);
+    const done = Math.min(est, ss.blocksCompleted || 0);
+    blocksDoneSum += done;
+    blocksTotalSum += est;
+  }
+
   let html = `<div class="planned-blocks">
     <div class="planned-blocks-header">
       <div class="planned-blocks-title">Today’s planned blocks</div>
-      <div class="planned-blocks-count">${fullToday} / ${maxToday} completed</div>
+      <div class="planned-blocks-count">${blocksDoneSum} / ${blocksTotalSum} completed</div>
     </div>`;
 
   if (planned.length === 0) {
@@ -760,16 +792,24 @@ function renderPlannedBlocksChecklist() {
       }
       const step = p.step;
       const ss = p.ss || getStepState(step.id);
-      const est = step.estimated_blocks || 1;
-      const doneBlocks = ss.blocksCompleted || 0;
+      const est = step.estimated_blocks || 3;
+      const doneBlocks = Math.min(est, ss.blocksCompleted || 0);
       const pct = Math.min(100, Math.round((doneBlocks / est) * 100));
-      const checked = ss.status === 'done';
+      // Round 3 Task 2: block-dots replace checkbox. Clicking empty fills, clicking filled unfills.
+      let dotsHtml = '';
+      for (let i = 0; i < est; i++) {
+        const filled = i < doneBlocks;
+        const current = (i === doneBlocks);
+        const cls = `step-block-dot${filled ? ' filled' : ''}${current ? ' current' : ''}`;
+        const aria = filled ? `Un-log block ${i + 1} of ${est}` : `Log block ${i + 1} of ${est}`;
+        dotsHtml += `<button type="button" class="block-dot-btn" data-stepid="${step.id}" data-msid="${p.milestone.id}" data-dot-index="${i}" data-est="${est}" aria-label="${aria}"><span class="${cls}"></span></button>`;
+      }
       html += `<li class="planned-row">
-        <input type="checkbox" class="planned-cb" data-stepid="${step.id}" data-msid="${p.milestone.id}" ${checked ? 'checked' : ''} aria-label="Mark substep done">
+        <div class="planned-row-dots" role="group" aria-label="Blocks completed for this substep">${dotsHtml}</div>
         <div class="planned-row-main">
           <div class="planned-row-title">${escapeHtml(msTitle)}</div>
           <div class="planned-row-sub">${escapeHtml(step.title)}</div>
-          <div class="planned-row-meta"><span class="planned-row-track" style="color:${color}">${escapeHtml(label)}</span> · block ${doneBlocks + 1} of ${est}</div>
+          <div class="planned-row-meta"><span class="planned-row-track" style="color:${color}">${escapeHtml(label)}</span> · 90m block ${Math.min(doneBlocks + 1, est)} of ${est}</div>
           <div class="planned-row-bar"><div class="planned-row-bar-fill" style="width:${pct}%; background:${color}"></div></div>
         </div>
         <div class="planned-row-actions">
@@ -784,15 +824,75 @@ function renderPlannedBlocksChecklist() {
   return html;
 }
 
-function handlePlannedToggle(stepId, milestoneId, checked) {
+// Round 3 Task 2: block-dot click on Home planned rows.
+// Clicking an empty dot logs one block (increments blocksCompleted).
+// Clicking a filled dot un-logs it. Does NOT mark the step done.
+function handleBlockDotClick(stepId, milestoneId, dotIndex, est) {
   const ss = getStepState(stepId);
-  if (checked) {
-    ss.status = 'done';
-  } else if (ss.status === 'done') {
-    ss.status = (ss.blocksCompleted || 0) > 0 ? 'active' : 'pending';
+  const done = ss.blocksCompleted || 0;
+  const idx = Number(dotIndex);
+  const max = Number(est) || (getStepFromIds(milestoneId, stepId)?.estimated_blocks || 3);
+  // Filled (idx < done) → unlog to exactly idx blocks; Empty → log up to idx+1 blocks.
+  let newCount;
+  if (idx < done) {
+    newCount = idx; // un-fill this dot and any after it
+  } else {
+    newCount = Math.min(max, idx + 1);
   }
+  ss.blocksCompleted = newCount;
+  if (newCount > 0 && ss.status === 'pending') ss.status = 'active';
+  if (newCount === 0 && ss.status === 'active') ss.status = 'pending';
   saveState();
   renderHome();
+}
+
+// Helper: locate a step object inside QUEST_DATA from milestone id + step id.
+function getStepFromIds(milestoneId, stepId) {
+  for (const track of Object.keys(QUEST_DATA)) {
+    for (const ms of QUEST_DATA[track]) {
+      if (ms.id !== milestoneId) continue;
+      for (const s of (ms.steps || [])) {
+        if (s.id === stepId) return s;
+      }
+    }
+  }
+  return null;
+}
+
+// Round 3 Task 5: wire up the Plan-week '?' popover.
+// Open on click of '?'; close on outside click or Esc. Does not trigger the main button.
+function wirePlanWeekHelp() {
+  const help = document.getElementById('planWeekHelp');
+  const pop = document.getElementById('planWeekPopover');
+  if (!help || !pop) return;
+
+  const close = () => {
+    pop.hidden = true;
+    help.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', onDocClick, true);
+    document.removeEventListener('keydown', onKey);
+  };
+  const open = () => {
+    pop.hidden = false;
+    help.setAttribute('aria-expanded', 'true');
+    // Defer binding so the opening click doesn't immediately close it.
+    setTimeout(() => {
+      document.addEventListener('click', onDocClick, true);
+      document.addEventListener('keydown', onKey);
+    }, 0);
+  };
+  function onDocClick(e) {
+    if (pop.contains(e.target) || help.contains(e.target)) return;
+    close();
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') close();
+  }
+  help.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (pop.hidden) open(); else close();
+  });
 }
 
 // Task 2: Prep drawer — reuse the prep view inside the overlay.
@@ -869,9 +969,20 @@ function renderHome() {
     // Round 2 Task B: hero shows substep (primary) + milestone context (secondary).
     const substepTxt = next.step.title;
     const contextTxt = `${next.milestone.title} · ${getTrackLabel(next.track)}`;
+    // Round 3 Task 2: block-dots under substep title on the hero button.
+    const heroEst = next.step.estimated_blocks || 3;
+    const heroSs = getStepState(next.step.id);
+    const heroDone = Math.min(heroEst, heroSs.blocksCompleted || 0);
+    let heroDots = '';
+    for (let i = 0; i < heroEst; i++) {
+      const filled = i < heroDone;
+      const current = (i === heroDone);
+      heroDots += `<span class="step-block-dot${filled ? ' filled' : ''}${current ? ' current' : ''}" aria-hidden="true"></span>`;
+    }
     html += `<button class="start-block-btn start-block-btn-v2" style="background:${color}" onclick="navigate('#focus/${next.milestone.id}/${next.step.id}')">
       <span class="btn-label-sm">Start next block</span>
       <span class="start-block-substep">${escapeHtml(substepTxt)}</span>
+      <span class="start-block-dots" aria-label="${heroDone} of ${heroEst} blocks done">${heroDots}</span>
       <span class="start-block-context">${escapeHtml(contextTxt)}</span>
     </button>`;
   } else {
@@ -930,20 +1041,35 @@ function renderHome() {
     </div>`;
   }
 
-  // Plan My Week button
-  html += `<button class="plan-week-btn" id="planWeekBtn" onclick="copyWeeklyPrompt()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-    Plan my week with AI
-  </button>`;
+  // Plan My Week button (Round 3 Task 5: wrap with ? info icon + popover).
+  html += `<div class="plan-week-wrap">
+    <button class="plan-week-btn" id="planWeekBtn" onclick="copyWeeklyPrompt()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      Plan my week with AI
+    </button>
+    <button class="plan-week-help" id="planWeekHelp" type="button" aria-label="How this works" aria-haspopup="dialog" aria-expanded="false">?</button>
+    <div class="plan-week-popover" id="planWeekPopover" role="dialog" aria-label="How Plan my week with AI works" hidden>
+      <ol>
+        <li>Tap this button — we copy an AI prompt to your clipboard with your active projects, block capacity, and deadlines.</li>
+        <li>Paste into ChatGPT, Claude, or Perplexity.</li>
+        <li>The AI returns a suggested weekly plan.</li>
+        <li>Skim the plan; pick the blocks that feel right and add them to today's queue.</li>
+      </ol>
+    </div>
+  </div>`;
 
   el.innerHTML = html;
 
-  // Task 7: bind planned-blocks checkboxes.
-  el.querySelectorAll('.planned-cb').forEach(cb => {
-    cb.addEventListener('change', () => {
-      handlePlannedToggle(cb.dataset.stepid, cb.dataset.msid, cb.checked);
+  // Round 3 Task 2: bind block-dot buttons on planned rows.
+  el.querySelectorAll('.block-dot-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleBlockDotClick(btn.dataset.stepid, btn.dataset.msid, btn.dataset.dotIndex, btn.dataset.est);
     });
   });
+
+  // Round 3 Task 5: plan-week '?' help popover.
+  wirePlanWeekHelp();
 
   // Round 2 Task B: Details → open step drawer.
   el.querySelectorAll('.planned-row-details').forEach(btn => {
@@ -959,7 +1085,10 @@ function renderProjects() {
   const el = document.getElementById('view-projects');
   let html = '<div class="section-title">Projects</div>';
 
-  for (const track of ACTIVE_TRACKS) {
+  const activeTracks = getActiveTrackIds();
+  const archivedTracks = getArchivedTrackIds();
+
+  for (const track of activeTracks) {
     const ms = getCurrentMilestone(track);
     const color = TRACK_COLORS[track];
     const label = getTrackLabel(track); // Feature 2
@@ -979,6 +1108,7 @@ function renderProjects() {
       <span class="proj-milestone">${escapeHtml(msTitle)}</span>
       <span class="proj-progress">${stepsLabel}${blocksLabel ? ` · ${blocksLabel}` : ''}</span>
       <div class="proj-progress-bar"><div class="proj-progress-bar-fill" style="width:${pct}%; background:${color}"></div></div>
+      <button class="proj-archive-btn" data-archive-track="${track}" title="Move this project to the archive" aria-label="Archive project">Archive</button>
     </div>`;
   }
 
@@ -995,26 +1125,48 @@ function renderProjects() {
 
   html += `<div class="archive-toggle" id="archiveToggle" onclick="toggleArchive()">
     ${ICONS.chevronRight}
-    <span>${INACTIVE_TRACKS.length} archived projects</span>
+    <span>${archivedTracks.length} archived projects</span>
   </div>`;
   html += `<div class="archive-list" id="archiveList" style="display:none;">`;
-  for (const track of INACTIVE_TRACKS) {
+  for (const track of archivedTracks) {
     const ms = getCurrentMilestone(track);
     const color = TRACK_COLORS[track];
     const label = getTrackLabel(track);
     const msTitle = ms ? ms.title : 'Complete';
     const sum = getTrackProgressSummary(track);
     const stepsLabel = sum.stepsTotal > 0 ? `${sum.stepsDone} / ${sum.stepsTotal} steps` : '—';
-    html += `<div class="project-card" onclick="navigate('#track/${track}')">
+    html += `<div class="project-card project-card-archived" onclick="navigate('#track/${track}')">
       <span class="dot" style="background:${color}"></span>
       <span class="proj-name">${escapeHtml(label)}</span>
       <span class="proj-milestone">${escapeHtml(msTitle)}</span>
       <span class="proj-progress">${stepsLabel}</span>
+      <button class="proj-archive-btn proj-activate-btn" data-activate-track="${track}" title="Move this project back into active rotation" aria-label="Activate project">Activate</button>
     </div>`;
   }
   html += `</div>`;
 
   el.innerHTML = html;
+
+  // Archive / Activate toggles (Round 3 Task 1).
+  el.querySelectorAll('[data-archive-track]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setTrackActive(btn.dataset.archiveTrack, false);
+    });
+  });
+  el.querySelectorAll('[data-activate-track]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setTrackActive(btn.dataset.activateTrack, true);
+    });
+  });
+}
+
+function setTrackActive(trackId, active) {
+  if (!state.trackOverrides[trackId]) state.trackOverrides[trackId] = {};
+  state.trackOverrides[trackId].active = !!active;
+  saveState();
+  renderProjects();
 }
 
 function toggleArchive() {
@@ -1719,6 +1871,22 @@ function renderFocus(milestoneId, stepId) {
       </div>
 
       <div class="focus-block-info" id="focusBlockInfo">Block ${blocksOnStep + 1}${estBlocks ? ` of ~${estBlocks}` : ''}</div>
+      ${(() => {
+        // Round 3 Task 3: block-dots on Focus. Keep text above; dots under; caption if >3.
+        const est = step.estimated_blocks || 3;
+        const doneF = Math.min(est, blocksOnStep);
+        let out = '<div class="focus-block-dots" aria-label="' + doneF + ' of ' + est + ' blocks complete">';
+        for (let i = 0; i < est; i++) {
+          const filled = i < doneF;
+          const current = i === doneF;
+          out += '<span class="step-block-dot' + (filled ? ' filled' : '') + (current ? ' current' : '') + '" aria-hidden="true"></span>';
+        }
+        out += '</div>';
+        if (est > 3) {
+          out += '<div class="focus-block-caption">Block ' + (doneF + 1) + ' of ' + est + '</div>';
+        }
+        return out;
+      })()}
 
       <div class="focus-toggle">
         <button class="${!timerIsWarmup ? 'active' : ''}" onclick="setTimerMode(false)">Full (${state.settings.blockDurationMin}m)</button>
@@ -2024,7 +2192,7 @@ function renderSchedulePlan() {
     <h4>Which projects will you focus on this week?</h4>
     <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Pick 1–2 to reduce context switching. Only selected projects appear in your daily queue.</p>`;
 
-  for (const track of ACTIVE_TRACKS) {
+  for (const track of getActiveTrackIds()) {
     const color = TRACK_COLORS[track];
     const label = getTrackLabel(track);
     const selected = fps.includes(track);
@@ -2266,7 +2434,7 @@ function renderPrep() {
     <input type="date" class="prep-date-input" id="prepBatchDate" title="Start date">
     <select class="prep-select" id="prepBatchProject">
       <option value="">Link to project (optional)</option>
-      ${ACTIVE_TRACKS.map(t => `<option value="${t}">${escapeHtml(getTrackLabel(t))}</option>`).join('')}
+      ${getActiveTrackIds().map(t => `<option value="${t}">${escapeHtml(getTrackLabel(t))}</option>`).join('')}
     </select>
     <button class="btn btn-outline" onclick="startNewBatch()" style="flex:0 0 auto;">Start</button>
   </div>`;
@@ -2436,7 +2604,7 @@ function generateWeeklyPrompt() {
 
   // Project status
   prompt += `--- ACTIVE PROJECTS ---\n\n`;
-  for (const track of ACTIVE_TRACKS) {
+  for (const track of getActiveTrackIds()) {
     const label = getTrackLabel(track);
     const milestones = QUEST_DATA[track] || [];
     const current = getCurrentMilestone(track);
@@ -3090,7 +3258,7 @@ function renderProgress() {
   const projLabels = [];
   const projData = [];
   const projColors = [];
-  for (const track of [...ACTIVE_TRACKS, ...INACTIVE_TRACKS]) {
+  for (const track of getAllTrackIds()) {
     if (projectBlocks[track]) {
       projLabels.push(getTrackLabel(track));
       projData.push(projectBlocks[track]);
@@ -3199,7 +3367,7 @@ function renderWeeklyReviewStep(step) {
   } else if (step === 2) {
     const fps = state.weeklyPlan.focusProjects || [];
     let projectPicker = '';
-    for (const track of ACTIVE_TRACKS) {
+    for (const track of getActiveTrackIds()) {
       const color = TRACK_COLORS[track];
       const label = getTrackLabel(track);
       const selected = fps.includes(track);

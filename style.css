@@ -2107,3 +2107,106 @@ a { color: inherit; text-decoration: none; }
   max-width: 520px;
   line-height: 1.45;
 }
+
+/* ============================================================
+   ROUND 3 — Archive / Activate buttons on project cards
+   ============================================================ */
+.project-card { position: relative; }
+.proj-archive-btn {
+  font-family: var(--font); font-size: var(--text-xs); font-weight: 500;
+  padding: 4px 10px; border-radius: var(--r-md);
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-muted); cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  margin-left: var(--sp-2); white-space: nowrap;
+}
+.proj-archive-btn:hover {
+  background: var(--surface-hover); color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+.proj-activate-btn {
+  color: var(--text-secondary); border-color: var(--text-muted);
+}
+.proj-activate-btn:hover {
+  color: var(--text-primary); border-color: var(--text-primary);
+  background: var(--surface-hover);
+}
+.project-card-archived { opacity: 0.6; }
+.project-card-archived:hover { opacity: 0.85; }
+
+/* ============================================================
+   ROUND 3 — Planned-row block dots (Home)
+   ============================================================ */
+.planned-row-dots {
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+  padding: 4px 2px;
+}
+.planned-row-dots .step-block-dot {
+  width: 14px; height: 14px;
+}
+/* 30px minimum tap target via a transparent button wrapper */
+.block-dot-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; min-width: 30px;
+  padding: 0; background: transparent; border: none; cursor: pointer;
+  border-radius: var(--r-md);
+  transition: background var(--t-fast);
+}
+.block-dot-btn:hover { background: var(--surface-hover); }
+.block-dot-btn:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+.block-dot-btn .step-block-dot { pointer-events: none; }
+
+/* Hero block-dots on START NEXT BLOCK button */
+.start-block-dots {
+  display: flex; gap: 4px; margin-top: 6px;
+  align-items: center; justify-content: center;
+}
+.start-block-dots .step-block-dot { width: 10px; height: 10px; }
+
+/* Focus page block-dots */
+.focus-block-dots {
+  display: flex; gap: 6px; justify-content: center;
+  margin: var(--sp-2) 0 var(--sp-1);
+}
+.focus-block-dots .step-block-dot { width: 12px; height: 12px; }
+.focus-block-caption {
+  font-size: var(--text-xs); color: var(--text-muted);
+  text-align: center; margin-top: 2px;
+}
+
+/* ============================================================
+   ROUND 3 — Plan-week "?" help popover
+   ============================================================ */
+.plan-week-wrap { position: relative; }
+.plan-week-help {
+  position: absolute; top: 50%; right: var(--sp-3);
+  transform: translateY(-50%);
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font); font-size: var(--text-xs); font-weight: 600;
+  background: transparent; border: 1px solid var(--text-muted);
+  color: var(--text-muted); cursor: pointer; padding: 0;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  z-index: 2;
+}
+.plan-week-help:hover {
+  color: var(--text-primary); border-color: var(--text-primary);
+  background: var(--surface-hover);
+}
+.plan-week-popover {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  width: min(320px, 92vw);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  z-index: 10;
+  font-size: var(--text-sm); color: var(--text-secondary);
+  line-height: 1.5;
+}
+.plan-week-popover[hidden] { display: none; }
+.plan-week-popover ol {
+  margin: 0; padding-left: 1.25em;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.plan-week-popover li { color: var(--text-secondary); }
