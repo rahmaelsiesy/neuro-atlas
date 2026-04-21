@@ -15,11 +15,16 @@ const ARCHIVED_TRACKS_DEFAULT = ['fic', 'eef2', 'network', 'cursor', 'learning',
 function isTrackActive(trackId) {
   const override = (state && state.trackOverrides) ? state.trackOverrides[trackId] : null;
   if (override && typeof override.active === 'boolean') return override.active;
+  // Round 5: custom projects are active by default unless archived or
+  // explicitly flipped inactive via trackOverrides.
+  if (state && state.customProjects && state.customProjects[trackId]) {
+    return !state.customProjects[trackId].archived;
+  }
   return ACTIVE_TRACKS_DEFAULT.includes(trackId);
 }
 function getAllTrackIds() {
   // Stable ordering: defaults first (in their declared order), then any extra
-  // tracks present in QUEST_DATA that aren't listed above.
+  // tracks present in QUEST_DATA, then custom projects.
   const ordered = [...ACTIVE_TRACKS_DEFAULT, ...ARCHIVED_TRACKS_DEFAULT];
   const seen = new Set(ordered);
   if (typeof QUEST_DATA === 'object' && QUEST_DATA) {
@@ -27,10 +32,57 @@ function getAllTrackIds() {
       if (!seen.has(k)) { ordered.push(k); seen.add(k); }
     }
   }
+  // Round 5: include custom projects.
+  if (state && state.customProjects) {
+    for (const k of Object.keys(state.customProjects)) {
+      if (!seen.has(k)) { ordered.push(k); seen.add(k); }
+    }
+  }
   return ordered;
 }
 function getActiveTrackIds() { return getAllTrackIds().filter(isTrackActive); }
 function getArchivedTrackIds() { return getAllTrackIds().filter(t => !isTrackActive(t)); }
+
+// Round 5: custom project support — a project is "custom" when its id
+// lives in state.customProjects. Built-in projects live in QUEST_DATA.
+function isCustomProject(trackId) {
+  return !!(state.customProjects && state.customProjects[trackId]);
+}
+function getCustomProject(trackId) {
+  return (state.customProjects && state.customProjects[trackId]) || null;
+}
+function getMilestonesForTrack(trackId) {
+  if (QUEST_DATA && QUEST_DATA[trackId]) return QUEST_DATA[trackId];
+  const cp = getCustomProject(trackId);
+  return (cp && Array.isArray(cp.milestones)) ? cp.milestones : [];
+}
+// Palette for custom projects — muted pastel-earth swatches that match the
+// Soma theme tokens. First entry is the default accent.
+const CUSTOM_PROJECT_PALETTE = ['#c8a07a', '#7db88a', '#b07da8', '#6ba3b5', '#c49a6c', '#9a9a6c'];
+function getTrackColor(trackId) {
+  const override = state.projectOverrides && state.projectOverrides[trackId];
+  if (override && override.color) return override.color;
+  const cp = getCustomProject(trackId);
+  if (cp && cp.color) return cp.color;
+  return TRACK_COLORS[trackId] || 'var(--text-muted)';
+}
+function getTrackDescription(trackId) {
+  const override = state.projectOverrides && state.projectOverrides[trackId];
+  if (override && typeof override.description === 'string') return override.description;
+  const cp = getCustomProject(trackId);
+  if (cp && typeof cp.description === 'string') return cp.description;
+  return '';
+}
+function getTrackIconKey(trackId) {
+  const override = state.projectOverrides && state.projectOverrides[trackId];
+  if (override && override.icon && MILESTONE_ICONS[override.icon]) return override.icon;
+  const cp = getCustomProject(trackId);
+  if (cp && cp.icon && MILESTONE_ICONS[cp.icon]) return cp.icon;
+  return 'code';
+}
+function getTrackIcon(trackId) {
+  return MILESTONE_ICONS[getTrackIconKey(trackId)] || MILESTONE_ICONS.dot;
+}
 const TRACK_COLORS = {
   dlpfc: '#c49a6c', package: '#7db88a', bd2: '#b07da8', dg: '#6ba3b5',
   fic: '#c49a6c', eef2: '#9a9a6c', network: '#9ca3af', cursor: '#6ba3b5',
@@ -51,7 +103,10 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const STORAGE_KEY = 'questboard_v3';
 
 // ---- State ----
-let state = loadState();
+// Round 5: declare `state` before invoking loadState() — loadState assigns
+// to the outer binding so rollover helpers can read it via the closure.
+let state;
+state = loadState();
 let timerInterval = null;
 let timerRemaining = 0;
 let timerTotal = 0;
@@ -62,16 +117,32 @@ let timerIsWarmup = false;
 let pendingNavHash = null;
 
 // ---- Theme system ----
+// Round 5 Task 13: 8 popular, designer-tested palettes. Default is rose-pine-dawn.
 const THEMES = [
-  { id: 'midnight', label: 'Midnight', top: '#1c1c22', bot: '#141418' },
-  { id: 'ocean',    label: 'Ocean',    top: '#152230', bot: '#0f1a24' },
-  { id: 'forest',   label: 'Forest',   top: '#17221a', bot: '#111a14' },
-  { id: 'dusk',     label: 'Dusk',     top: '#201c28', bot: '#181420' },
-  { id: 'sand',     label: 'Sand',     top: '#ede6da', bot: '#f5f0e8' },
-  { id: 'fog',      label: 'Fog',      top: '#e0e0e6', bot: '#eaeaee' },
+  { id: 'tokyo-night',       label: 'Tokyo Night',      top: '#24283b', bot: '#1a1b26' },
+  { id: 'catppuccin-mocha',  label: 'Catppuccin Mocha', top: '#313244', bot: '#1e1e2e' },
+  { id: 'nord',              label: 'Nord',             top: '#3b4252', bot: '#2e3440' },
+  { id: 'gruvbox-dark',      label: 'Gruvbox Dark',     top: '#32302f', bot: '#282828' },
+  { id: 'catppuccin-latte',  label: 'Catppuccin Latte', top: '#e6e9ef', bot: '#eff1f5' },
+  { id: 'solarized-light',   label: 'Solarized Light',  top: '#eee8d5', bot: '#fdf6e3' },
+  { id: 'rose-pine-dawn',    label: 'Rosé Pine Dawn',   top: '#fffaf3', bot: '#faf4ed' },
+  { id: 'gruvbox-light',     label: 'Gruvbox Light',    top: '#f2e5bc', bot: '#fbf1c7' },
 ];
 
+// Map legacy theme ids to the closest new palette.
+const LEGACY_THEME_MAP = {
+  midnight: 'tokyo-night',
+  ocean:    'nord',
+  forest:   'catppuccin-mocha',
+  dusk:     'gruvbox-dark',
+  sand:     'gruvbox-light',
+  fog:      'rose-pine-dawn'
+};
+
 function applyTheme(themeId) {
+  // Migrate legacy ids.
+  if (LEGACY_THEME_MAP[themeId]) themeId = LEGACY_THEME_MAP[themeId];
+  if (!THEMES.find(t => t.id === themeId)) themeId = 'rose-pine-dawn';
   document.documentElement.setAttribute('data-theme', themeId);
   localStorage.setItem('soma_theme', themeId);
   // Update PWA theme-color meta tag
@@ -81,7 +152,13 @@ function applyTheme(themeId) {
 }
 
 function getTheme() {
-  return localStorage.getItem('soma_theme') || 'midnight';
+  let stored = localStorage.getItem('soma_theme');
+  if (LEGACY_THEME_MAP[stored]) {
+    stored = LEGACY_THEME_MAP[stored];
+    localStorage.setItem('soma_theme', stored);
+  }
+  if (!THEMES.find(t => t.id === stored)) return 'rose-pine-dawn';
+  return stored;
 }
 
 // Apply saved theme immediately
@@ -99,7 +176,7 @@ function defaultState() {
     milestones: { 'dem-review-1': { status: 'done', notes: '' } },
     _demReviewSeeded: true,
     focusLog: [],
-    weeklyPlan: { weekOf: null, blocks: {}, approved: false, focusProjects: [], perProjectBlocks: {} },
+    weeklyPlan: { weekOf: null, blocks: {}, approved: false, focusProjects: [], perProjectBlocks: {}, rollover: {}, history: [], weekGoal: null },
     ideas: [],
     points: 0,
     streak: { current: 0, lastDate: null },
@@ -111,6 +188,9 @@ function defaultState() {
     customSteps: {},
     // Feature 2: track name/tag overrides
     trackOverrides: {},
+    // Round 5: custom user-created projects and per-project metadata overrides.
+    customProjects: {},
+    projectOverrides: {},
     // Feature 3: urgency flags
     urgency: {},
     // Feature 5: admin tasks
@@ -187,17 +267,25 @@ function loadState() {
         }
         s._demReviewSeeded = true;
       }
-      return {
+      const merged = {
         ...d, ...s,
         settings: { ...d.settings, ...(s.settings || {}) },
         streak: { ...d.streak, ...(s.streak || {}) },
         weeklyPlan: {
           ...d.weeklyPlan,
           ...(s.weeklyPlan || {}),
-          perProjectBlocks: (s.weeklyPlan && s.weeklyPlan.perProjectBlocks) || {}
+          perProjectBlocks: (s.weeklyPlan && s.weeklyPlan.perProjectBlocks) || {},
+          // Round 5 Task 4: additive migration for rollover + history.
+          rollover: (s.weeklyPlan && s.weeklyPlan.rollover) || {},
+          history: (s.weeklyPlan && Array.isArray(s.weeklyPlan.history)) ? s.weeklyPlan.history : [],
+          // Round 5 Task 8: per-week goal override. null → fall back to settings.weeklyGoal.
+          weekGoal: (s.weeklyPlan && typeof s.weeklyPlan.weekGoal === 'number') ? s.weeklyPlan.weekGoal : null
         },
         customSteps: customSteps,
         trackOverrides: s.trackOverrides || {},
+        // Round 5 Task 4: additive migration for customProjects + projectOverrides.
+        customProjects: s.customProjects || {},
+        projectOverrides: s.projectOverrides || {},
         urgency: s.urgency || {},
         adminTasks: s.adminTasks || [],
         prepBatches: s.prepBatches || [],
@@ -205,9 +293,17 @@ function loadState() {
         weeklyReviews: s.weeklyReviews || [],
         qcChecks: s.qcChecks || {}
       };
+      // Round 5: let state be visible before running rollover so helpers
+      // that read `state` (like computeCompletedByTrack) resolve correctly.
+      state = merged;
+      try { maybeRolloverWeeklyPlan(); } catch (e) { console.warn('Rollover error', e); }
+      return state;
     }
   } catch (e) { console.warn('State load error', e); }
-  return defaultState();
+  const fresh = defaultState();
+  state = fresh;
+  try { maybeRolloverWeeklyPlan(); } catch (e) { console.warn('Rollover error', e); }
+  return state;
 }
 
 function saveState() {
@@ -270,11 +366,21 @@ function weeksUntil(dateStr) {
 function getAllSteps(milestoneId) {
   const custom = state.customSteps[milestoneId] || [];
   let baseSteps = [];
-  for (const track of Object.keys(QUEST_DATA)) {
-    for (const ms of QUEST_DATA[track]) {
-      if (ms.id === milestoneId) { baseSteps = ms.steps || []; break; }
+  // Round 5: walk built-in tracks AND custom projects.
+  const walk = (msList) => {
+    for (const ms of (msList || [])) {
+      if (ms.id === milestoneId) { baseSteps = ms.steps || []; return true; }
     }
-    if (baseSteps.length) break;
+    return false;
+  };
+  let found = false;
+  for (const track of Object.keys(QUEST_DATA)) {
+    if (walk(QUEST_DATA[track])) { found = true; break; }
+  }
+  if (!found && state.customProjects) {
+    for (const track of Object.keys(state.customProjects)) {
+      if (walk((state.customProjects[track] || {}).milestones)) break;
+    }
   }
   let out;
   if (custom.some(s => s && s._base)) {
@@ -301,6 +407,15 @@ function getMilestone(milestoneId) {
       if (ms.id === milestoneId) return ms;
     }
   }
+  // Round 5: look in custom projects.
+  if (state.customProjects) {
+    for (const track of Object.keys(state.customProjects)) {
+      const list = (state.customProjects[track] || {}).milestones || [];
+      for (const ms of list) {
+        if (ms.id === milestoneId) return ms;
+      }
+    }
+  }
   return null;
 }
 
@@ -310,11 +425,20 @@ function getTrackForMilestone(milestoneId) {
       if (ms.id === milestoneId) return track;
     }
   }
+  // Round 5: look in custom projects.
+  if (state.customProjects) {
+    for (const track of Object.keys(state.customProjects)) {
+      const list = (state.customProjects[track] || {}).milestones || [];
+      for (const ms of list) {
+        if (ms.id === milestoneId) return track;
+      }
+    }
+  }
   return null;
 }
 
 function getCurrentMilestone(trackId) {
-  const milestones = QUEST_DATA[trackId] || [];
+  const milestones = getMilestonesForTrack(trackId);
   for (const ms of milestones) {
     const msState = getMilestoneState(ms.id);
     if (msState.status !== 'done') return ms;
@@ -406,7 +530,7 @@ function getMilestoneStepProgress(milestoneId) {
 
 // Task 3: aggregate progress across ALL milestones of a track.
 function getTrackProgressSummary(trackId) {
-  const milestones = QUEST_DATA[trackId] || [];
+  const milestones = getMilestonesForTrack(trackId);
   let stepsDone = 0, stepsTotal = 0, blocksDone = 0, blocksTotal = 0;
   for (const ms of milestones) {
     const steps = getAllSteps(ms.id);
@@ -436,6 +560,92 @@ function getWeekBlocks(weekStart) {
   });
 }
 
+// Round 5 Task 1: weekly rollover helpers.
+// computeCompletedByTrack returns { trackId: count } of non-warmup blocks logged
+// during the given week, grouped by the milestone’s track.
+function computeCompletedByTrack(weekStart) {
+  const out = {};
+  const blocks = getWeekBlocks(weekStart);
+  for (const log of blocks) {
+    if (log.warmup) continue;
+    const track = getTrackForMilestone(log.milestoneId);
+    if (!track) continue;
+    out[track] = (out[track] || 0) + 1;
+  }
+  return out;
+}
+// computeUnfinishedBlocks returns { trackId: max(0, allocated - completed) } for
+// every known track (built-in + custom). Only positive counts are kept.
+function computeUnfinishedBlocks(weekStart) {
+  const perProject = (state.weeklyPlan && state.weeklyPlan.perProjectBlocks) || {};
+  const completed = computeCompletedByTrack(weekStart);
+  const out = {};
+  for (const t of getAllTrackIds()) {
+    const allocated = perProject[t] || 0;
+    const done = completed[t] || 0;
+    const unfinished = Math.max(0, allocated - done);
+    if (unfinished > 0) out[t] = unfinished;
+  }
+  return out;
+}
+// Monday-morning reset. Archives the outgoing week into weeklyPlan.history
+// and pre-applies unfinished blocks to the new week as rollover. Idempotent.
+function maybeRolloverWeeklyPlan() {
+  const wp = state.weeklyPlan;
+  if (!wp) return;
+  const thisMonday = getWeekStart(todayStr());
+  if (!wp.weekOf) {
+    wp.weekOf = thisMonday;
+    wp.rollover = wp.rollover || {};
+    wp.history = wp.history || [];
+    saveState();
+    return;
+  }
+  if (wp.weekOf === thisMonday) return;
+
+  // New week detected — archive outgoing week to history.
+  const outgoingWeek = wp.weekOf;
+  const unfinished = computeUnfinishedBlocks(outgoingWeek);
+  const outgoingCompleted = computeCompletedByTrack(outgoingWeek);
+  const outgoingHistory = {
+    weekOf: outgoingWeek,
+    goal: (state.settings && state.settings.weeklyGoal) || 10,
+    allocated: Object.values(wp.perProjectBlocks || {}).reduce((a, b) => a + b, 0),
+    completed: Object.values(outgoingCompleted).reduce((a, b) => a + b, 0),
+    perProject: {}
+  };
+  for (const t of getAllTrackIds()) {
+    outgoingHistory.perProject[t] = {
+      allocated: (wp.perProjectBlocks || {})[t] || 0,
+      completed: outgoingCompleted[t] || 0
+    };
+  }
+  wp.history = wp.history || [];
+  wp.history.push(outgoingHistory);
+  if (wp.history.length > 26) wp.history = wp.history.slice(-26);
+
+  // Set up the new week with rollover as starting allocation.
+  wp.weekOf = thisMonday;
+  wp.perProjectBlocks = { ...unfinished };
+  wp.rollover = { ...unfinished };
+  wp.approved = false;
+  wp.blocks = {};
+  wp.focusProjects = Object.keys(unfinished).filter(t => unfinished[t] > 0);
+  // Round 5 Task 8: clear per-week goal on rollover so next week falls back
+  // to the settings.weeklyGoal default.
+  wp.weekGoal = null;
+
+  saveState();
+}
+
+// Round 5 Task 8: effective weekly goal — a per-week override (wp.weekGoal)
+// takes precedence over settings.weeklyGoal.
+function getEffectiveWeeklyGoal() {
+  const wp = state.weeklyPlan || {};
+  if (typeof wp.weekGoal === 'number' && wp.weekGoal > 0) return wp.weekGoal;
+  return (state.settings && state.settings.weeklyGoal) || 10;
+}
+
 function getNextQueuedTask() {
   const focusProjects = state.weeklyPlan.focusProjects || [];
   const activeIds = getActiveTrackIds();
@@ -449,10 +659,15 @@ function getNextQueuedTask() {
   return null;
 }
 
-// Feature 2: get effective track label
+// Feature 2 + Round 5: effective track label.
+// Priority: projectOverrides.label → trackOverrides.label (legacy) → customProjects.label → TRACK_LABELS.
 function getTrackLabel(trackId) {
-  const override = state.trackOverrides[trackId];
+  const po = state.projectOverrides && state.projectOverrides[trackId];
+  if (po && po.label) return po.label;
+  const override = state.trackOverrides && state.trackOverrides[trackId];
   if (override && override.label) return override.label;
+  const cp = getCustomProject(trackId);
+  if (cp && cp.label) return cp.label;
   return TRACK_LABELS[trackId] || trackId;
 }
 
@@ -735,14 +950,48 @@ function getStepIcon(step) {
 // blocks per active project for the current week using simple +/- steppers.
 // Totals show live; remainder is visible. Clicking 'Edit full week' navigates
 // to the Schedule page for the day-by-day view.
-function renderWeeklyPlanPanel() {
+// Round 5: Monday-Friday short date range, e.g. "Apr 21 – Apr 25". Omits year.
+function formatWeekRange(mondayStr) {
+  if (!mondayStr) return '';
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const m = new Date(mondayStr + 'T00:00:00');
+  const f = new Date(m);
+  f.setDate(m.getDate() + 4);
+  return `${mon[m.getMonth()]} ${m.getDate()} – ${mon[f.getMonth()]} ${f.getDate()}`;
+}
+
+// Round 5 Tasks 6/7/8/9: the week-plan panel has two modes.
+// EXPANDED (not yet approved, or explicitly re-opened): full stepper UI.
+// COLLAPSED (approved AND for current week): one-line summary at bottom.
+// The panel also shows the Mon–Fri date range, an inline goal editor, and
+// a Sunday rollover preview (above the panel) when applicable.
+// Mode is controlled by `state.weeklyPlan._panelExpanded` (transient, per-session
+// hint) OR falls back to `!approved`.
+function isWeekPlanApprovedForThisWeek() {
+  const wp = state.weeklyPlan || {};
+  const thisMonday = getWeekStart(todayStr());
+  return !!wp.approved && wp.weekOf === thisMonday;
+}
+function isWeekPlanExpanded() {
+  const wp = state.weeklyPlan || {};
+  if (wp._panelExpanded === true) return true;
+  if (wp._panelExpanded === false) return false;
+  // Default: expanded when not yet approved for this week.
+  return !isWeekPlanApprovedForThisWeek();
+}
+
+function renderWeeklyPlanPanel(opts) {
+  opts = opts || {};
+  const placement = opts.placement || 'top'; // 'top' or 'bottom'
   const activeIds = getActiveTrackIds();
   if (activeIds.length === 0) return '';
 
-  const weeklyGoal = state.settings.weeklyGoal || 10;
+  const weeklyGoal = getEffectiveWeeklyGoal();
   const perProject = state.weeklyPlan.perProjectBlocks || {};
+  const rollover = state.weeklyPlan.rollover || {};
   const weekStart = getWeekStart(todayStr());
   const weekB = getWeekBlocks(weekStart);
+  const weekRange = formatWeekRange(state.weeklyPlan.weekOf || weekStart);
 
   // Completed blocks this week, broken down by track.
   const doneByTrack = {};
@@ -759,26 +1008,88 @@ function renderWeeklyPlanPanel() {
 
   const remaining = Math.max(0, weeklyGoal - allocated);
   const overLimit = allocated > weeklyGoal;
+  const expanded = isWeekPlanExpanded();
+  const approvedThisWeek = isWeekPlanApprovedForThisWeek();
 
-  let html = `<section class="week-plan-panel" aria-label="Weekly plan">
+  // COLLAPSED variant: render only at bottom placement; skip top placement.
+  if (!expanded && approvedThisWeek) {
+    if (placement !== 'bottom') return '';
+    const parts = activeIds
+      .filter(t => (perProject[t] || 0) > 0)
+      .map(t => `${perProject[t]} ${escapeHtml(getTrackLabel(t))}`);
+    const summary = parts.length > 0 ? parts.join(' · ') : 'no blocks assigned';
+    return `<section class="week-plan-panel week-plan-panel-collapsed" aria-label="Weekly plan summary">
+      <div class="week-plan-collapsed-row">
+        <span class="week-plan-collapsed-label">This week</span>
+        <span class="week-plan-collapsed-range">${escapeHtml(weekRange)}</span>
+        <span class="week-plan-collapsed-total">${allocated} blocks</span>
+        <span class="week-plan-collapsed-sep">·</span>
+        <span class="week-plan-collapsed-breakdown">${summary}</span>
+        <button class="week-plan-collapsed-edit" onclick="expandWeekPlan()">Edit ›</button>
+      </div>
+    </section>`;
+  }
+
+  // EXPANDED variant: only render at top placement.
+  if (placement !== 'top') return '';
+
+  let html = '';
+
+  // Round 5 Task 1: Sunday preview — show what will roll over to next Monday.
+  if (dayOfWeek() === 0) {
+    const preview = computeUnfinishedBlocks(weekStart);
+    const entries = Object.keys(preview)
+      .filter(t => preview[t] > 0)
+      .map(t => `${preview[t]} from ${getTrackLabel(t)}`);
+    if (entries.length > 0) {
+      const joined = entries.length === 1
+        ? entries[0]
+        : entries.slice(0, -1).join(', ') + ' and ' + entries.slice(-1);
+      html += `<div class="sunday-rollover-preview" role="note">
+        <span class="sunday-rollover-preview-label">Next Monday</span>
+        <span class="sunday-rollover-preview-text">${escapeHtml(joined)} will be pre-assigned for you.</span>
+      </div>`;
+    }
+  }
+
+  // Round 5 Task 7: allocation-state wording.
+  // allocated < goal → "N left to assign"
+  // allocated === goal → "ready to approve"
+  // allocated > goal → "N over goal"
+  let subText;
+  if (overLimit) subText = `${allocated - weeklyGoal} over goal`;
+  else if (allocated === weeklyGoal) subText = 'ready to approve';
+  else subText = `${remaining} left to assign`;
+
+  // Round 5 Task 9: goal is shown as a clickable inline editor.
+  const goalEditor = `<button class="week-plan-goal-btn" type="button" onclick="startEditWeekGoal(event)" title="Change this week’s goal">${weeklyGoal}</button>`;
+
+  html += `<section class="week-plan-panel" aria-label="Weekly plan">
     <div class="week-plan-header">
       <div class="week-plan-title-group">
-        <div class="week-plan-title">This week</div>
-        <div class="week-plan-sub">${allocated} / ${weeklyGoal} blocks allocated${remaining > 0 ? ` · ${remaining} left to assign` : (overLimit ? ` · ${allocated - weeklyGoal} over goal` : ' · goal reached')}</div>
+        <div class="week-plan-title-line">
+          <span class="week-plan-title">This week</span>
+          <span class="week-plan-range">${escapeHtml(weekRange)}</span>
+        </div>
+        <div class="week-plan-sub"><span class="week-plan-alloc">${allocated}</span> / ${goalEditor} blocks allocated · ${escapeHtml(subText)}</div>
       </div>
       <a class="week-plan-edit-link" onclick="navigate('#schedule')">Edit full week ›</a>
     </div>
     <div class="week-plan-rows">`;
 
   for (const track of activeIds) {
-    const color = TRACK_COLORS[track] || 'var(--accent)';
+    const color = getTrackColor(track);
     const label = getTrackLabel(track);
     const planned = perProject[track] || 0;
     const done = doneByTrack[track] || 0;
     const pct = planned > 0 ? Math.min(100, Math.round((done / planned) * 100)) : 0;
+    const carried = rollover[track] || 0;
+    const carriedBadge = carried > 0
+      ? ` <span class="week-plan-rollover" title="Carried from last week">+${carried} carried</span>`
+      : '';
     html += `<div class="week-plan-row" data-track="${track}">
       <span class="week-plan-dot" style="background:${color}"></span>
-      <span class="week-plan-label">${escapeHtml(label)}</span>
+      <span class="week-plan-label">${escapeHtml(label)}${carriedBadge}</span>
       <div class="week-plan-stepper" role="group" aria-label="${escapeHtml(label)} blocks per week">
         <button class="week-plan-step-btn" aria-label="Decrease" onclick="adjustProjectBlocks('${track}', -1)">−</button>
         <span class="week-plan-count"><span class="week-plan-done">${done}</span><span class="week-plan-sep"> / </span><span class="week-plan-planned">${planned}</span></span>
@@ -790,17 +1101,64 @@ function renderWeeklyPlanPanel() {
 
   html += `</div>`;
 
-  // Quick-balance helper: split remaining evenly across active projects.
+  // Action row: Approve (Task 6), plus quick-balance helper when there's room.
+  html += `<div class="week-plan-actions">`;
   if (remaining > 0 && activeIds.length > 0) {
-    html += `<div class="week-plan-hint">
-      <button class="week-plan-autofill" onclick="autoFillWeeklyPlan()">Split remaining evenly</button>
-    </div>`;
-  } else if (overLimit) {
-    html += `<div class="week-plan-hint week-plan-hint-warn">You've allocated more than this week's goal of ${weeklyGoal} blocks. Adjust above, or raise the goal in Settings.</div>`;
+    html += `<button class="week-plan-autofill" onclick="autoFillWeeklyPlan()">Split remaining evenly</button>`;
+  }
+  const approveLabel = approvedThisWeek ? 'Re-approve and collapse' : 'Approve plan';
+  html += `<button class="week-plan-approve-btn" onclick="approveWeekPlan()">${approveLabel}</button>`;
+  html += `</div>`;
+
+  if (overLimit) {
+    html += `<div class="week-plan-hint week-plan-hint-warn">You’ve allocated more than this week’s goal of ${weeklyGoal} blocks. Adjust above, or change the goal.</div>`;
   }
 
   html += `</section>`;
   return html;
+}
+
+// Round 5 Task 6: approve the plan → collapses the panel.
+function approveWeekPlan() {
+  state.weeklyPlan.approved = true;
+  state.weeklyPlan._panelExpanded = false;
+  saveState();
+  renderHome();
+}
+// Re-open the expanded panel from the collapsed summary.
+function expandWeekPlan() {
+  state.weeklyPlan._panelExpanded = true;
+  saveState();
+  renderHome();
+}
+// Round 5 Task 8: inline edit of this week’s goal. Integer 1–40.
+function startEditWeekGoal(evt) {
+  if (evt) evt.stopPropagation();
+  const btn = evt && evt.currentTarget;
+  if (!btn) return;
+  const current = getEffectiveWeeklyGoal();
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.min = '1';
+  input.max = '40';
+  input.value = String(current);
+  input.className = 'week-plan-goal-input';
+  btn.replaceWith(input);
+  input.focus();
+  input.select();
+  function commit() {
+    const raw = parseInt(input.value, 10);
+    if (!isNaN(raw) && raw >= 1 && raw <= 40) {
+      state.weeklyPlan.weekGoal = raw;
+      saveState();
+    }
+    renderHome();
+  }
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.removeEventListener('blur', commit); renderHome(); }
+  });
 }
 
 function adjustProjectBlocks(trackId, delta) {
@@ -823,7 +1181,7 @@ function adjustProjectBlocks(trackId, delta) {
 function autoFillWeeklyPlan() {
   const activeIds = getActiveTrackIds();
   if (activeIds.length === 0) return;
-  const weeklyGoal = state.settings.weeklyGoal || 10;
+  const weeklyGoal = getEffectiveWeeklyGoal();
   const per = state.weeklyPlan.perProjectBlocks || {};
   let allocated = 0;
   for (const t of activeIds) allocated += (per[t] || 0);
@@ -857,95 +1215,116 @@ function autoFillWeeklyPlan() {
 // checklist. Each row shows the milestone title as the primary label and
 // the next substep (first non-done step) as a secondary line with its own
 // Start Focus shortcut.
-function renderPlannedBlocksChecklist() {
-  const maxToday = state.settings.blocksPerDay.max;
+// Round 5 Task 12: today's target blocks — the number of 90-min commitments
+// for today. Prefer an explicit plan grid slot count, else spread the weekly
+// goal across Mon–Fri, with a lower weekend target.
+function getTodayTarget() {
+  const wp = state.weeklyPlan || {};
+  const goal = getEffectiveWeeklyGoal();
+  const dow = dayOfWeek();
+  if (dow === 0 || dow === 6) {
+    return (state.settings.blocksPerDay && state.settings.blocksPerDay.min) || 2;
+  }
+  const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const todayKey = dayKeys[dow];
+  const todayBlocks = wp.blocks && wp.blocks[todayKey];
+  if (Array.isArray(todayBlocks) && todayBlocks.length > 0) return todayBlocks.length;
+  const minPerDay = (state.settings.blocksPerDay && state.settings.blocksPerDay.min) || 2;
+  return Math.max(minPerDay, Math.ceil(goal / 5));
+}
 
-  // One row per active milestone (one per focus-track). Cap at maxToday.
-  const planned = [];
-  const seenMs = new Set();
+// Round 5 Task 12: one row per 90-min block committed to today. Each substep
+// that needs multiple blocks repeats across rows (one row per block). Capped
+// at getTodayTarget(). Replaces the Round 3 Task 2 multi-dot block-row view.
+function renderPlannedBlocksChecklist() {
+  const target = getTodayTarget();
+  const todayBlocksLogged = getTodayBlocks().filter(l => !l.warmup).length;
+  const completedToday = Math.min(target, todayBlocksLogged);
+
+  // Build the row queue — one entry per block-commitment for today.
+  // Source substeps from the focus projects' current milestones, honoring the
+  // weekly plan's per-project allocations when set.
+  const rows = [];
+  const perProject = (state.weeklyPlan && state.weeklyPlan.perProjectBlocks) || {};
   const focusProjects = state.weeklyPlan.focusProjects || [];
   const tracks = focusProjects.length > 0
     ? focusProjects.filter(t => isTrackActive(t))
     : getActiveTrackIds();
+
   for (const track of tracks) {
+    if (rows.length >= target) break;
     const ms = getCurrentMilestone(track);
     if (!ms) continue;
-    if (seenMs.has(ms.id)) continue;
-    seenMs.add(ms.id);
-    const step = getActiveStep(ms.id); // may be null if all done
-    const ss = step ? getStepState(step.id) : null;
-    planned.push({ track, milestone: ms, step, ss });
-    if (planned.length >= maxToday) break;
-  }
-
-  // Round 3 Task 2: header counts block-dots across planned rows, not row completions.
-  let blocksDoneSum = 0, blocksTotalSum = 0;
-  for (const p of planned) {
-    if (!p.step) continue;
-    const est = p.step.estimated_blocks || 1;
-    const ss = p.ss || getStepState(p.step.id);
-    const done = Math.min(est, ss.blocksCompleted || 0);
-    blocksDoneSum += done;
-    blocksTotalSum += est;
+    const steps = getAllSteps(ms.id);
+    for (const step of steps) {
+      if (rows.length >= target) break;
+      const ss = getStepState(step.id);
+      if (ss.status === 'done') continue;
+      const est = step.estimated_blocks || 1;
+      const remaining = Math.max(0, est - (ss.blocksCompleted || 0));
+      for (let i = 0; i < remaining && rows.length < target; i++) {
+        rows.push({
+          track,
+          milestone: ms,
+          step,
+          ss,
+          blockIndex: (ss.blocksCompleted || 0) + i, // 0-based block # for this step
+          totalBlocks: est
+        });
+      }
+    }
   }
 
   let html = `<div class="planned-blocks">
     <div class="planned-blocks-header">
       <div class="planned-blocks-title">Today’s planned blocks</div>
-      <div class="planned-blocks-count">${blocksDoneSum} / ${blocksTotalSum} completed</div>
+      <div class="planned-blocks-count">${completedToday} / ${target} completed today</div>
     </div>`;
 
-  if (planned.length === 0) {
-    html += `<div class="planned-blocks-empty">No queued milestones. <a onclick="navigate('#projects')">Pick a project</a>.</div>`;
-  } else {
-    html += `<ul class="planned-list">`;
-    for (const p of planned) {
-      const color = TRACK_COLORS[p.track] || 'var(--text-muted)';
-      const label = getTrackLabel(p.track);
-      const msTitle = p.milestone.title;
-      if (!p.step) {
-        // All steps done — offer mark-milestone-complete shortcut.
-        html += `<li class="planned-row planned-row-complete">
-          <span class="planned-cb-disabled" aria-hidden="true"></span>
-          <div class="planned-row-main">
-            <div class="planned-row-title">${escapeHtml(msTitle)}</div>
-            <div class="planned-row-sub planned-row-sub-muted">All steps done — mark milestone complete</div>
-            <div class="planned-row-meta"><span class="planned-row-track" style="color:${color}">${escapeHtml(label)}</span></div>
-          </div>
-          <button class="planned-row-go" onclick="navigate('#path/${p.track}/${p.milestone.id}')">Open ›</button>
-        </li>`;
-        continue;
-      }
-      const step = p.step;
-      const ss = p.ss || getStepState(step.id);
-      const est = step.estimated_blocks || 3;
-      const doneBlocks = Math.min(est, ss.blocksCompleted || 0);
-      const pct = Math.min(100, Math.round((doneBlocks / est) * 100));
-      // Round 3 Task 2: block-dots replace checkbox. Clicking empty fills, clicking filled unfills.
-      let dotsHtml = '';
-      for (let i = 0; i < est; i++) {
-        const filled = i < doneBlocks;
-        const current = (i === doneBlocks);
-        const cls = `step-block-dot${filled ? ' filled' : ''}${current ? ' current' : ''}`;
-        const aria = filled ? `Un-log block ${i + 1} of ${est}` : `Log block ${i + 1} of ${est}`;
-        dotsHtml += `<button type="button" class="block-dot-btn" data-stepid="${step.id}" data-msid="${p.milestone.id}" data-dot-index="${i}" data-est="${est}" aria-label="${aria}"><span class="${cls}"></span></button>`;
-      }
-      html += `<li class="planned-row">
-        <div class="planned-row-dots" role="group" aria-label="Blocks completed for this substep">${dotsHtml}</div>
-        <div class="planned-row-main">
-          <div class="planned-row-title">${escapeHtml(msTitle)}</div>
-          <div class="planned-row-sub">${escapeHtml(step.title)}</div>
-          <div class="planned-row-meta"><span class="planned-row-track" style="color:${color}">${escapeHtml(label)}</span> · 90m block ${Math.min(doneBlocks + 1, est)} of ${est}</div>
-          <div class="planned-row-bar"><div class="planned-row-bar-fill" style="width:${pct}%; background:${color}"></div></div>
-        </div>
-        <div class="planned-row-actions">
-          <button class="planned-row-details" data-details-step="${step.id}" data-details-ms="${p.milestone.id}">Details ›</button>
-          <button class="planned-row-go" onclick="navigate('#focus/${p.milestone.id}/${step.id}')">Start Focus</button>
-        </div>
-      </li>`;
-    }
-    html += `</ul>`;
+  // Round 5 Task 12E: after today's target is met, show the calm done state.
+  if (todayBlocksLogged >= target && target > 0) {
+    html += `<div class="planned-blocks-done">
+      <div class="planned-blocks-done-title">You’ve completed today’s ${target} block${target === 1 ? '' : 's'}.</div>
+      <div class="planned-blocks-done-sub">Rest is productive too.</div>
+      <button class="btn btn-outline planned-blocks-done-btn" onclick="navigate('#schedule')">View tomorrow’s plan ›</button>
+    </div>`;
+    html += `</div>`;
+    return html;
   }
+
+  if (rows.length === 0) {
+    html += `<div class="planned-blocks-empty">No queued milestones. <a onclick="navigate('#projects')">Pick a project</a>.</div>`;
+    html += `</div>`;
+    return html;
+  }
+
+  const blockMin = state.settings.blockDurationMin || 90;
+  html += `<ul class="planned-list">`;
+  for (const p of rows) {
+    const color = getTrackColor(p.track);
+    const label = getTrackLabel(p.track);
+    const msTitle = p.milestone.title;
+    const step = p.step;
+    const blockNo = p.blockIndex + 1;
+    const totalBlocks = p.totalBlocks;
+    const metaBlockLabel = totalBlocks > 1
+      ? `${blockMin}-min block · ${blockNo} of ${totalBlocks} for this substep`
+      : `${blockMin}-min block`;
+
+    html += `<li class="planned-row planned-row-today">
+      <span class="planned-row-colordot" style="background:${color}" aria-hidden="true"></span>
+      <div class="planned-row-main">
+        <div class="planned-row-title">${escapeHtml(msTitle)}</div>
+        <div class="planned-row-sub">${escapeHtml(step.title)}</div>
+        <div class="planned-row-meta"><span class="planned-row-track" style="color:${color}">${escapeHtml(label)}</span> · ${metaBlockLabel}</div>
+      </div>
+      <div class="planned-row-actions">
+        <button class="planned-row-details" data-details-step="${step.id}" data-details-ms="${p.milestone.id}">Details ›</button>
+        <button class="planned-row-go" onclick="navigate('#focus/${p.milestone.id}/${step.id}')">Start Focus</button>
+      </div>
+    </li>`;
+  }
+  html += `</ul>`;
   html += `</div>`;
   return html;
 }
@@ -979,6 +1358,18 @@ function getStepFromIds(milestoneId, stepId) {
       if (ms.id !== milestoneId) continue;
       for (const s of (ms.steps || [])) {
         if (s.id === stepId) return s;
+      }
+    }
+  }
+  // Round 5: look in custom projects.
+  if (state.customProjects) {
+    for (const track of Object.keys(state.customProjects)) {
+      const list = (state.customProjects[track] || {}).milestones || [];
+      for (const ms of list) {
+        if (ms.id !== milestoneId) continue;
+        for (const s of (ms.steps || [])) {
+          if (s.id === stepId) return s;
+        }
       }
     }
   }
@@ -1052,6 +1443,9 @@ function renderPrepInto(container) {
 
 // ---- RENDER: Home ----
 function renderHome() {
+  // Round 5 Task 1: catch any week boundary crossed since load without reload.
+  maybeRolloverWeeklyPlan();
+
   // Feature 11: Check for Sunday weekly review
   checkSundayReview();
 
@@ -1113,10 +1507,16 @@ function renderHome() {
   }
 
   // Round 4: weekly plan panel with per-project block sliders.
-  html += renderWeeklyPlanPanel();
+  // Round 5 Task 6: when approved for this week, the expanded panel
+  // returns '' from the top placement, and renders a collapsed one-line
+  // summary at the bottom placement (below today's planned blocks).
+  html += renderWeeklyPlanPanel({ placement: 'top' });
 
   // Task 7: planned blocks checklist (replaces today block-circles).
   html += renderPlannedBlocksChecklist();
+
+  // Round 5 Task 6: collapsed summary placement (bottom, de-emphasized).
+  html += renderWeeklyPlanPanel({ placement: 'bottom' });
 
   html += `<div class="block-section">
     <div class="block-section-label">This week</div>
@@ -1211,12 +1611,18 @@ function renderProjects() {
   const el = document.getElementById('view-projects');
   let html = '<div class="section-title">Projects</div>';
 
+  // Round 5 Task 3b: + New project card.
+  html += `<div class="project-new-card" onclick="openCreateProjectModal()">
+    <span class="project-new-plus" aria-hidden="true">+</span>
+    <span class="project-new-label">New project</span>
+  </div>`;
+
   const activeTracks = getActiveTrackIds();
   const archivedTracks = getArchivedTrackIds();
 
   for (const track of activeTracks) {
     const ms = getCurrentMilestone(track);
-    const color = TRACK_COLORS[track];
+    const color = getTrackColor(track);
     const label = getTrackLabel(track); // Feature 2
     const msTitle = ms ? ms.title : 'Complete';
     // Task 3: summed progress across ALL milestones of this track.
@@ -1234,6 +1640,7 @@ function renderProjects() {
       <span class="proj-milestone">${escapeHtml(msTitle)}</span>
       <span class="proj-progress">${stepsLabel}${blocksLabel ? ` · ${blocksLabel}` : ''}</span>
       <div class="proj-progress-bar"><div class="proj-progress-bar-fill" style="width:${pct}%; background:${color}"></div></div>
+      <button class="proj-edit-btn" data-edit-track="${track}" title="Edit project" aria-label="Edit project">Edit</button>
       <button class="proj-archive-btn" data-archive-track="${track}" title="Move this project to the archive" aria-label="Archive project">Archive</button>
     </div>`;
   }
@@ -1256,17 +1663,21 @@ function renderProjects() {
   html += `<div class="archive-list" id="archiveList" style="display:none;">`;
   for (const track of archivedTracks) {
     const ms = getCurrentMilestone(track);
-    const color = TRACK_COLORS[track];
+    const color = getTrackColor(track);
     const label = getTrackLabel(track);
     const msTitle = ms ? ms.title : 'Complete';
     const sum = getTrackProgressSummary(track);
     const stepsLabel = sum.stepsTotal > 0 ? `${sum.stepsDone} / ${sum.stepsTotal} steps` : '—';
+    const isCustom = isCustomProject(track);
+    const restoreBtn = isCustom
+      ? `<button class="proj-archive-btn proj-restore-btn" data-restore-custom="${track}" title="Restore this custom project" aria-label="Restore project">Restore</button>`
+      : `<button class="proj-archive-btn proj-activate-btn" data-activate-track="${track}" title="Move this project back into active rotation" aria-label="Activate project">Activate</button>`;
     html += `<div class="project-card project-card-archived" onclick="navigate('#track/${track}')">
       <span class="dot" style="background:${color}"></span>
       <span class="proj-name">${escapeHtml(label)}</span>
       <span class="proj-milestone">${escapeHtml(msTitle)}</span>
       <span class="proj-progress">${stepsLabel}</span>
-      <button class="proj-archive-btn proj-activate-btn" data-activate-track="${track}" title="Move this project back into active rotation" aria-label="Activate project">Activate</button>
+      ${restoreBtn}
     </div>`;
   }
   html += `</div>`;
@@ -1286,13 +1697,251 @@ function renderProjects() {
       setTrackActive(btn.dataset.activateTrack, true);
     });
   });
+  el.querySelectorAll('[data-edit-track]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEditProjectModal(btn.dataset.editTrack);
+    });
+  });
+  el.querySelectorAll('[data-restore-custom]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      restoreCustomProject(btn.dataset.restoreCustom);
+    });
+  });
 }
 
 function setTrackActive(trackId, active) {
   if (!state.trackOverrides[trackId]) state.trackOverrides[trackId] = {};
   state.trackOverrides[trackId].active = !!active;
+  // Round 5: also mirror the archived flag on custom projects.
+  if (isCustomProject(trackId)) {
+    state.customProjects[trackId].archived = !active;
+  }
   saveState();
   renderProjects();
+}
+
+// Round 5 Task 3b: restore an archived custom project.
+function restoreCustomProject(trackId) {
+  if (!isCustomProject(trackId)) return;
+  state.customProjects[trackId].archived = false;
+  if (!state.trackOverrides[trackId]) state.trackOverrides[trackId] = {};
+  state.trackOverrides[trackId].active = true;
+  saveState();
+  renderProjects();
+}
+
+// Round 5 Task 3b: project create/edit modal.
+const PROJECT_ICON_CHOICES = ['target', 'hexagon', 'cluster', 'map', 'bar', 'rings', 'pen', 'code', 'shield', 'flask', 'book', 'trophy'];
+
+function _closeProjectModal() {
+  const overlay = document.getElementById('projectModalOverlay');
+  if (overlay) overlay.remove();
+}
+
+function _openProjectModal(titleText, {label, description, iconKey, color, mode, trackId}) {
+  _closeProjectModal();
+  const iconsHtml = PROJECT_ICON_CHOICES.map(k => `
+    <button type="button" class="icon-grid-cell ${k === iconKey ? 'icon-grid-cell-selected' : ''}" data-icon="${k}" aria-label="${k}">${MILESTONE_ICONS[k]}</button>
+  `).join('');
+  const swatchHtml = CUSTOM_PROJECT_PALETTE.map(c => `
+    <button type="button" class="color-swatch ${c.toLowerCase() === (color || '').toLowerCase() ? 'color-swatch-selected' : ''}" data-color="${c}" style="background:${c}" aria-label="Color ${c}"></button>
+  `).join('');
+
+  const modeClass = mode === 'create' ? 'project-create-modal' : 'project-edit-modal';
+  const saveLabel = mode === 'create' ? 'Create project' : 'Save';
+
+  // Archive action — only for existing projects (edit mode).
+  let archiveBtn = '';
+  if (mode === 'edit' && trackId) {
+    archiveBtn = `<button type="button" class="btn btn-outline project-modal-archive" data-archive-id="${trackId}">Archive project</button>`;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'projectModalOverlay';
+  overlay.className = 'project-modal-overlay';
+  overlay.innerHTML = `
+    <div class="project-modal ${modeClass}" role="dialog" aria-label="${escapeHtml(titleText)}">
+      <div class="project-modal-title">${escapeHtml(titleText)}</div>
+      <label class="project-modal-field">
+        <span>Name</span>
+        <input type="text" id="projectModalName" value="${escapeHtml(label || '')}" maxlength="60" placeholder="Short name">
+      </label>
+      <label class="project-modal-field">
+        <span>Description</span>
+        <textarea id="projectModalDesc" rows="2" placeholder="What is this project for?" maxlength="240">${escapeHtml(description || '')}</textarea>
+      </label>
+      <div class="project-modal-field">
+        <span>Icon</span>
+        <div class="icon-grid" id="projectModalIcons">${iconsHtml}</div>
+      </div>
+      <div class="project-modal-field">
+        <span>Color</span>
+        <div class="color-swatches" id="projectModalColors">${swatchHtml}</div>
+      </div>
+      <div class="project-modal-actions">
+        ${archiveBtn}
+        <button type="button" class="btn btn-outline" id="projectModalCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="projectModalSave">${saveLabel}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Selection state
+  let selIcon = iconKey;
+  let selColor = color;
+
+  overlay.querySelectorAll('.icon-grid-cell').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selIcon = btn.dataset.icon;
+      overlay.querySelectorAll('.icon-grid-cell').forEach(b => b.classList.remove('icon-grid-cell-selected'));
+      btn.classList.add('icon-grid-cell-selected');
+    });
+  });
+  overlay.querySelectorAll('.color-swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selColor = btn.dataset.color;
+      overlay.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('color-swatch-selected'));
+      btn.classList.add('color-swatch-selected');
+    });
+  });
+
+  overlay.querySelector('#projectModalCancel').addEventListener('click', _closeProjectModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) _closeProjectModal(); });
+
+  if (archiveBtn) {
+    overlay.querySelector('.project-modal-archive').addEventListener('click', () => {
+      _closeProjectModal();
+      setTrackActive(trackId, false);
+    });
+  }
+
+  overlay.querySelector('#projectModalSave').addEventListener('click', () => {
+    const name = (document.getElementById('projectModalName').value || '').trim();
+    if (!name) {
+      document.getElementById('projectModalName').focus();
+      return;
+    }
+    const desc = (document.getElementById('projectModalDesc').value || '').trim();
+    if (mode === 'create') {
+      _createCustomProject({label: name, description: desc, icon: selIcon, color: selColor});
+    } else {
+      _saveProjectEdits(trackId, {label: name, description: desc, icon: selIcon, color: selColor});
+    }
+    _closeProjectModal();
+    renderProjects();
+  });
+
+  setTimeout(() => {
+    const nameEl = document.getElementById('projectModalName');
+    if (nameEl) nameEl.focus();
+  }, 50);
+}
+
+function openCreateProjectModal() {
+  _openProjectModal('New project', {
+    label: '',
+    description: '',
+    iconKey: 'target',
+    color: CUSTOM_PROJECT_PALETTE[0],
+    mode: 'create'
+  });
+}
+
+function openEditProjectModal(trackId) {
+  _openProjectModal('Edit project', {
+    label: getTrackLabel(trackId),
+    description: getTrackDescription(trackId),
+    iconKey: getTrackIconKey(trackId),
+    color: getTrackColor(trackId),
+    mode: 'edit',
+    trackId
+  });
+}
+
+function _createCustomProject({label, description, icon, color}) {
+  if (!state.customProjects) state.customProjects = {};
+  const id = 'custom_' + Date.now().toString(36);
+  state.customProjects[id] = {
+    id,
+    label,
+    description: description || '',
+    icon: icon || 'target',
+    color: color || CUSTOM_PROJECT_PALETTE[0],
+    archived: false,
+    milestones: []
+  };
+  // Mark active in overrides so it appears in active list.
+  if (!state.trackOverrides[id]) state.trackOverrides[id] = {};
+  state.trackOverrides[id].active = true;
+  saveState();
+}
+
+function _saveProjectEdits(trackId, {label, description, icon, color}) {
+  if (isCustomProject(trackId)) {
+    // Custom — edit the canonical record.
+    const cp = state.customProjects[trackId];
+    cp.label = label;
+    cp.description = description;
+    cp.icon = icon;
+    cp.color = color;
+  } else {
+    // Built-in — write to projectOverrides.
+    if (!state.projectOverrides) state.projectOverrides = {};
+    if (!state.projectOverrides[trackId]) state.projectOverrides[trackId] = {};
+    state.projectOverrides[trackId].label = label;
+    state.projectOverrides[trackId].description = description;
+    state.projectOverrides[trackId].icon = icon;
+    state.projectOverrides[trackId].color = color;
+    // Also keep existing trackOverrides.label in sync so legacy reads still work.
+    if (!state.trackOverrides[trackId]) state.trackOverrides[trackId] = {};
+    state.trackOverrides[trackId].label = label;
+  }
+  saveState();
+}
+
+// Round 5 Task 3b: add milestone to a custom project.
+function addCustomMilestone(trackId) {
+  if (!isCustomProject(trackId)) return;
+  const title = (prompt('Milestone title') || '').trim();
+  if (!title) return;
+  const id = 'cms_' + Date.now().toString(36);
+  const ms = {
+    id,
+    title,
+    category: 'custom',
+    estimated_blocks: 0,
+    steps: []
+  };
+  state.customProjects[trackId].milestones = state.customProjects[trackId].milestones || [];
+  state.customProjects[trackId].milestones.push(ms);
+  saveState();
+  renderTrack(trackId);
+}
+
+// Round 5 Task 3b: add step to a milestone inside a custom project.
+function addCustomStepToMilestone(trackId, milestoneId) {
+  if (!isCustomProject(trackId)) return;
+  const title = (prompt('Step title') || '').trim();
+  if (!title) return;
+  const blocksStr = prompt('Estimated blocks (90 min each)', '1');
+  const estimated_blocks = Math.max(1, parseInt(blocksStr || '1') || 1);
+  const cp = state.customProjects[trackId];
+  const ms = (cp.milestones || []).find(m => m.id === milestoneId);
+  if (!ms) return;
+  ms.steps = ms.steps || [];
+  const step = {
+    id: 'cstep_' + Date.now().toString(36),
+    title,
+    type: 'custom',
+    desc: '',
+    estimated_blocks
+  };
+  ms.steps.push(step);
+  saveState();
+  renderPath(trackId, milestoneId);
 }
 
 function toggleArchive() {
@@ -1331,8 +1980,8 @@ function startEditProjectName(evt, trackId) {
 // ---- RENDER: Track ----
 function renderTrack(trackId) {
   const el = document.getElementById('view-track');
-  const milestones = QUEST_DATA[trackId] || [];
-  const color = TRACK_COLORS[trackId];
+  const milestones = getMilestonesForTrack(trackId);
+  const color = getTrackColor(trackId);
   const label = getTrackLabel(trackId); // Feature 2
   const override = state.trackOverrides[trackId] || {};
   const tags = override.tags || [];
@@ -1425,6 +2074,13 @@ function renderTrack(trackId) {
       html += `<div class="${connClass} candy-conn-${side}-to-${nextSide}" aria-hidden="true"></div>`;
     }
   });
+
+  // Round 5 Task 3b: + Add milestone button for custom projects.
+  if (isCustomProject(trackId)) {
+    html += `<div class="candy-row candy-row--left">
+      <button class="candy-add-milestone" onclick="addCustomMilestone('${trackId}')" aria-label="Add milestone">+ Add milestone</button>
+    </div>`;
+  }
 
   html += `</div>`; // /candy-path
 
@@ -1784,6 +2440,25 @@ function submitAddStep(milestoneId, trackId) {
   const title = (titleInput ? titleInput.value : '').trim();
   if (!title) return;
   const estimated_blocks = parseInt(blocksInput ? blocksInput.value : '1') || 1;
+  // Round 5 Task 3b: inside a custom project, write the step directly into
+  // the milestone on state.customProjects so it becomes a first-class step.
+  if (isCustomProject(trackId)) {
+    const cp = state.customProjects[trackId];
+    const ms = (cp.milestones || []).find(m => m.id === milestoneId);
+    if (ms) {
+      ms.steps = ms.steps || [];
+      ms.steps.push({
+        id: 'cstep_' + Date.now().toString(36),
+        title,
+        type: 'custom',
+        desc: '',
+        estimated_blocks
+      });
+      saveState();
+      renderPath(trackId, milestoneId);
+      return;
+    }
+  }
   const newStep = {
     id: 'custom-' + milestoneId + '-' + Date.now(),
     title,
@@ -1853,8 +2528,10 @@ function openStepDrawer(milestoneId, stepId) {
     html += `<button class="btn btn-outline" style="width:100%;margin-top:16px;" onclick="markStepDone('${stepId}','${milestoneId}')">Mark as done</button>`;
   }
 
-  // Feature 1: delete custom step option
-  const isCustomStep = (state.customSteps[milestoneId] || []).some(s => s.id === stepId);
+  // Feature 1: delete custom step option. Round 5 Task 3b: also recognize
+  // user-created steps inside a custom project's milestone.
+  const isCustomStep = (state.customSteps[milestoneId] || []).some(s => s.id === stepId)
+    || (isCustomProject(track) && stepId && stepId.startsWith('cstep_'));
   if (isCustomStep) {
     html += `<button class="btn btn-danger" style="width:100%;margin-top:8px;" onclick="deleteCustomStep('${stepId}','${milestoneId}','${track}')">Delete custom step</button>`;
   }
@@ -1935,10 +2612,25 @@ function markStepDone(stepId, milestoneId) {
   handleRoute();
 }
 
-// Feature 1: delete custom step
+// Feature 1: delete custom step. Round 5 Task 3b: also handles steps living
+// inside a custom project's milestone.
 function deleteCustomStep(stepId, milestoneId, trackId) {
-  if (!state.customSteps[milestoneId]) return;
-  state.customSteps[milestoneId] = state.customSteps[milestoneId].filter(s => s.id !== stepId);
+  let removed = false;
+  if (state.customSteps[milestoneId]) {
+    const before = state.customSteps[milestoneId].length;
+    state.customSteps[milestoneId] = state.customSteps[milestoneId].filter(s => s.id !== stepId);
+    if (state.customSteps[milestoneId].length !== before) removed = true;
+  }
+  if (!removed && isCustomProject(trackId)) {
+    const cp = state.customProjects[trackId];
+    const ms = (cp.milestones || []).find(m => m.id === milestoneId);
+    if (ms && Array.isArray(ms.steps)) {
+      const before = ms.steps.length;
+      ms.steps = ms.steps.filter(s => s.id !== stepId);
+      if (ms.steps.length !== before) removed = true;
+    }
+  }
+  if (!removed) return;
   saveState();
   closeDrawer();
   renderPath(trackId, milestoneId);
@@ -2388,6 +3080,9 @@ function generatePlanGrid(focusProjects, weeklyGoal) {
     return (order[a.urgLevel] ?? 2) - (order[b.urgLevel] ?? 2);
   });
 
+  // Round 5 Task 10: simplified slot copy — uniform "90 min focus block" per
+  // slot, small project dot. Click navigates to Focus for that step.
+  const blockMin = state.settings.blockDurationMin || 90;
   let html = `<div class="plan-grid">`;
   let taskIdx = 0;
   for (let d = 0; d < 5; d++) {
@@ -2395,15 +3090,14 @@ function generatePlanGrid(focusProjects, weeklyGoal) {
     for (let b = 0; b < hardPerDay && b < blocksPerDay; b++) {
       if (taskIdx < taskQueue.length) {
         const t = taskQueue[taskIdx];
-        const color = TRACK_COLORS[t.track];
-        const shortTitle = t.stepTitle.length > 20 ? t.stepTitle.slice(0, 18) + '..' : t.stepTitle;
+        const color = getTrackColor(t.track);
         const urgClass = t.urgLevel ? ` urgency-${t.urgLevel}` : '';
-        html += `<div class="plan-slot${urgClass}"><span class="dot" style="background:${color}"></span>${escapeHtml(shortTitle)}</div>`;
+        html += `<div class="plan-slot plan-slot-simple${urgClass}" onclick="navigate('#focus/${t.milestoneId}/${t.stepId}')" title="${escapeHtml(t.stepTitle)}"><span class="dot" style="background:${color}"></span><span class="plan-slot-label">${blockMin} min focus block</span></div>`;
         taskIdx++;
       }
     }
     if (d < 5 && flexPerDay > 0 && d < flexTotal) {
-      html += `<div class="plan-slot flex-slot">flex</div>`;
+      html += `<div class="plan-slot plan-slot-simple flex-slot">flex</div>`;
     }
     html += `</div>`;
   }
@@ -2744,7 +3438,7 @@ function generateWeeklyPrompt() {
   prompt += `--- ACTIVE PROJECTS ---\n\n`;
   for (const track of getActiveTrackIds()) {
     const label = getTrackLabel(track);
-    const milestones = QUEST_DATA[track] || [];
+    const milestones = getMilestonesForTrack(track);
     const current = getCurrentMilestone(track);
     const urg = current ? (getUrgency(current.id) || 'none') : 'none';
     const dueDate = current ? (state.dueDates[current.id] || 'no due date') : '';
@@ -3294,6 +3988,84 @@ function renderRewardCard(tier, isStreak) {
 let _chartWeekly = null;
 let _chartProject = null;
 
+// Round 5 Task 2: last 8 weeks + current week as bars with goal-relative labels.
+function renderWeeklyGoalTracker() {
+  const wp = state.weeklyPlan || {};
+  const history = Array.isArray(wp.history) ? wp.history.slice(-8) : [];
+
+  // Current week (in-progress) row — derived live.
+  const thisMonday = getWeekStart(todayStr());
+  const currentCompleted = computeCompletedByTrack(thisMonday);
+  const currentGoal = getEffectiveWeeklyGoal();
+  const currentAllocated = Object.values(wp.perProjectBlocks || {}).reduce((a, b) => a + b, 0);
+  const currentCompletedTotal = Object.values(currentCompleted).reduce((a, b) => a + b, 0);
+  const current = {
+    weekOf: thisMonday,
+    goal: currentGoal,
+    allocated: currentAllocated,
+    completed: currentCompletedTotal,
+    inProgress: true
+  };
+
+  if (history.length === 0 && current.completed === 0 && current.allocated === 0) {
+    return `<div class="chart-card weekly-tracker weekly-tracker-empty">
+      <div class="chart-card-title">Weekly goal tracker</div>
+      <div class="weekly-tracker-empty-text">Weekly stats appear here once you complete your first week.</div>
+    </div>`;
+  }
+
+  // Running average across completed history weeks (exclude in-progress current).
+  let avgLabel = '';
+  if (history.length > 0) {
+    const sum = history.reduce((a, h) => a + (h.completed || 0), 0);
+    const avg = Math.round((sum / history.length) * 10) / 10;
+    avgLabel = `Last ${history.length} week${history.length === 1 ? '' : 's'}: avg ${avg} blocks / week`;
+  }
+
+  const rows = [...history, current];
+  let rowsHtml = '';
+  for (const w of rows) {
+    const goal = w.goal || 10;
+    const completed = w.completed || 0;
+    const pct = goal > 0 ? Math.min(100, Math.round((completed / goal) * 100)) : 0;
+    const diff = completed - goal;
+
+    let label, labelClass;
+    if (w.inProgress) {
+      label = 'in progress';
+      labelClass = 'weekly-tracker-label-progress';
+    } else if (diff < 0) {
+      label = `${-diff} under goal`;
+      labelClass = 'weekly-tracker-label-under';
+    } else if (diff > 0) {
+      label = `${diff} over goal`;
+      labelClass = 'weekly-tracker-label-over';
+    } else {
+      label = 'on goal';
+      labelClass = 'weekly-tracker-label-on';
+    }
+
+    // Format week label as "Apr 14" (Monday of that week).
+    const d = new Date(w.weekOf + 'T00:00:00');
+    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const weekLabel = mon[d.getMonth()] + ' ' + d.getDate() + (w.inProgress ? ' · this week' : '');
+
+    const barClass = w.inProgress ? 'weekly-tracker-bar-fill weekly-tracker-bar-current' : 'weekly-tracker-bar-fill';
+    rowsHtml += `<div class="weekly-tracker-row">
+      <div class="weekly-tracker-week">${weekLabel}</div>
+      <div class="weekly-tracker-bar"><div class="${barClass}" style="width:${pct}%"></div></div>
+      <div class="weekly-tracker-count">${completed} / ${goal} blocks</div>
+      <div class="weekly-tracker-label ${labelClass}">${label}</div>
+    </div>`;
+  }
+
+  return `<div class="chart-card weekly-tracker">
+    <div class="chart-card-title">Weekly goal tracker</div>
+    ${avgLabel ? `<div class="weekly-tracker-avg">${avgLabel}</div>` : ''}
+    <div class="weekly-tracker-rows">${rowsHtml}</div>
+  </div>`;
+}
+
 function renderProgress() {
   const el = document.getElementById('view-progress');
 
@@ -3323,6 +4095,7 @@ function renderProgress() {
         <div class="progress-stat-label">Points</div>
       </div>
     </div>
+    ${renderWeeklyGoalTracker()}
     <div class="chart-card">
       <div class="chart-card-title">Weekly focus hours — last 12 weeks</div>
       <div class="chart-canvas-wrap" style="height:200px;">
@@ -3673,14 +4446,11 @@ document.addEventListener('keydown', (e) => {
 // Hash change
 window.addEventListener('hashchange', handleRoute);
 
-// Weekly plan auto-reset check
-(function checkWeeklyPlanReset() {
-  const currentWeek = getWeekStart(todayStr());
-  if (state.weeklyPlan.weekOf && state.weeklyPlan.weekOf !== currentWeek) {
-    state.weeklyPlan.approved = false;
-    state.weeklyPlan.blocks = {};
-    saveState();
-  }
+// Round 5: Weekly plan rollover runs inside loadState(). This hook remains
+// as a safety net to catch the (rare) case where the module was imported
+// before midnight but rendering happens after the week boundary.
+(function () {
+  try { maybeRolloverWeeklyPlan(); } catch (e) { console.warn('Rollover error', e); }
 })();
 
 // Init
