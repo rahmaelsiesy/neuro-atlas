@@ -127,6 +127,7 @@ const THEMES = [
   { id: 'solarized-light',   label: 'Solarized Light',  top: '#eee8d5', bot: '#fdf6e3' },
   { id: 'rose-pine-dawn',    label: 'Rosé Pine Dawn',   top: '#fffaf3', bot: '#faf4ed' },
   { id: 'gruvbox-light',     label: 'Gruvbox Light',    top: '#f2e5bc', bot: '#fbf1c7' },
+  { id: 'remote-lime',       label: 'Remote Lime',      top: '#eaf5c1', bot: '#f4f1ec' },
 ];
 
 // Map legacy theme ids to the closest new palette.
