@@ -58,7 +58,23 @@ function getMilestonesForTrack(trackId) {
 }
 // Palette for custom projects — muted pastel-earth swatches that match the
 // Soma theme tokens. First entry is the default accent.
-const CUSTOM_PROJECT_PALETTE = ['#c8a07a', '#7db88a', '#b07da8', '#6ba3b5', '#c49a6c', '#9a9a6c'];
+// Expanded project-tag palette. 16 hand-picked hues chosen to:
+//  (1) stay AA-readable as text and as pill backgrounds against both dark
+//      (#141418-ish) and light (#f4f1ec-ish) theme backgrounds;
+//  (2) cover warm + cool + neutral families so two adjacent projects never
+//      look identical;
+//  (3) include the 6 original muted tones at the top so existing projects
+//      keep their saved color after this migration.
+const CUSTOM_PROJECT_PALETTE = [
+  // Row 1 — original muted set (kept for back-compat with existing projects)
+  '#c8a07a', '#7db88a', '#b07da8', '#6ba3b5', '#c49a6c', '#9a9a6c',
+  // Row 2 — warm
+  '#e07a5f', '#e6b422', '#d98c3f', '#b84a62',
+  // Row 3 — cool
+  '#4f8fc0', '#5c8a7a', '#8e7cc3', '#3f6b8b',
+  // Row 4 — fresh + neutral
+  '#a3c586', '#8a8a94'
+];
 function getTrackColor(trackId) {
   const override = state.projectOverrides && state.projectOverrides[trackId];
   if (override && override.color) return override.color;

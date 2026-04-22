@@ -2820,12 +2820,20 @@ a { color: inherit; text-decoration: none; }
 }
 
 .color-swatches {
-  display: flex; gap: var(--sp-2); flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(8, 32px);
+  gap: var(--sp-2);
+  justify-content: start;
+}
+@media (max-width: 480px) {
+  .color-swatches { grid-template-columns: repeat(6, 32px); }
 }
 .color-swatch {
   width: 32px; height: 32px; border-radius: 50%;
   border: 2px solid transparent; cursor: pointer; padding: 0;
   transition: transform var(--t-fast), border-color var(--t-fast);
+  /* subtle inner ring so white-ish swatches remain visible on light themes */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 .color-swatch:hover { transform: scale(1.08); }
 .color-swatch-selected {
