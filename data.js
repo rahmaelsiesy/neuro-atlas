@@ -34,7 +34,7 @@ const CATEGORY_META = {
   eef2:     { label: "EEF2 Methods Paper",    color: "var(--c-eef2)",    emoji: "⚡", required: false, goal: "Prioritized optional: cell-type-stratified efficiency correction for seqFISH (publishable standalone)" },
   network:  { label: "Network & ML (Post-Grad)", color: "#9ca3af",          emoji: "🕸️", required: false, goal: "Post-graduation: SIR epidemic, assortativity, CONCORD SAE, network motifs" },
   package:  { label: "txomics Package",       color: "var(--c-package)", emoji: "📦", required: false, goal: "Public pip package — shared toolkit for all analyses" },
-  cursor:   { label: "Cursor Plan (Pipeline)",color: "var(--c-dg)",      emoji: "🤖", required: false, goal: "P0–P8 AI-assisted implementation packets — executes the DLPFC/FIC analyses" },
+  cursor:   { label: "Cursor Plan (Pipeline)",color: "var(--c-cursor)",  emoji: "🤖", required: false, goal: "P0–P8 AI-assisted implementation packets — executes the DLPFC/FIC analyses" },
   learning: { label: "Learning Plan",         color: "var(--c-learning)",emoji: "📚", required: false, goal: "12 priority papers + methods mastery" },
   career:   { label: "Career Path",           color: "var(--c-career)",  emoji: "🚀", required: false, goal: "Thesis → Defense → Altos/Genentech/Illumina" },
   concord_sae:     { label: "CONCORD SAE",         color: "#b07da8",          emoji: "🧬", required: false, goal: "Sparse autoencoder interpretability over the CONCORD latent space — publishable methods paper" },

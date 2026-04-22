@@ -15,16 +15,20 @@
   --text-secondary: #8b8b96;
   --text-muted: #5a5a66;
 
-  --c-dlpfc: #c49a6c;
-  --c-package: #7db88a;
-  --c-bd2: #b07da8;
-  --c-dg: #6ba3b5;
-  --c-fic: #c49a6c;
-  --c-eef2: #9a9a6c;
-  --c-network: #9ca3af;
-  --c-cursor: #6ba3b5;
-  --c-learning: #8b8b96;
-  --c-career: #9ca3af;
+  /* Project accents — repainted for at-a-glance distinction on the Candy Land path.
+     Each active project gets a hue from a different family (warm / cool / neutral)
+     so no two projects look alike side-by-side. Values drawn from the 16-color
+     project-tag palette in app.js. */
+  --c-dlpfc: #e07a5f;       /* coral   — RUSH DLPFC AD */
+  --c-fic: #d98c3f;         /* rust    — RUSH FIC AD (was duplicate of dlpfc) */
+  --c-bd2: #8e7cc3;         /* lavender — BD2 ACC */
+  --c-dg: #4f8fc0;          /* steel-blue — DG Neurogenesis */
+  --c-package: #a3c586;     /* fresh green — txomics Package */
+  --c-cursor: #5c8a7a;      /* teal    — Cursor Plan (was duplicate of dg) */
+  --c-eef2: #e6b422;        /* amber   — EEF2 Methods Paper */
+  --c-network: #9ca3af;     /* archived, keep neutral */
+  --c-learning: #3f6b8b;    /* deep-blue — Learning Plan */
+  --c-career: #b84a62;      /* berry   — Career Path */
   --c-gold: #d4a44c;
 
   --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
